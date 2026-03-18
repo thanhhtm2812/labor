@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hồ sơ công ty — LaborConnect</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    * { font-family: 'Be Vietnam Pro', sans-serif; }
+    .tab-btn.active { border-bottom: 3px solid #0F4C81; color: #0F4C81; font-weight: 700; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .job-row:hover { background: #f0f4fa; }
+    /* YouTube iframe responsive */
+    .yt-wrapper { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 12px; }
+    .yt-wrapper iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
+    /* Rich text từ employer */
+    .rich-content h2 { font-size: 1.1rem; font-weight: 700; color: #1a202c; margin: 1rem 0 .4rem; }
+    .rich-content p  { color: #4a5568; line-height: 1.7; margin-bottom: .6rem; }
+    .rich-content ul { list-style: disc; padding-left: 1.25rem; color: #4a5568; margin-bottom: .6rem; }
+    .rich-content li { margin-bottom: .3rem; }
+    .gallery-img { cursor: zoom-in; transition: transform .2s; }
+    .gallery-img:hover { transform: scale(1.03); }
+    /* Lightbox */
+    #lightbox { display:none; position:fixed; inset:0; background:rgba(0,0,0,.9); z-index:999; align-items:center; justify-content:center; }
+    #lightbox.open { display:flex; }
+    #lightboxImg { max-width:90vw; max-height:90vh; object-fit:contain; border-radius:8px; }
+    #lightboxClose { position:absolute; top:20px; right:24px; color:#fff; font-size:2rem; cursor:pointer; line-height:1; }
+    #lightboxPrev, #lightboxNext { position:absolute; top:50%; transform:translateY(-50%); background:rgba(255,255,255,.15); color:#fff; border:none; font-size:1.5rem; padding:12px 16px; cursor:pointer; border-radius:8px; }
+    #lightboxPrev { left:16px; }
+    #lightboxNext { right:16px; }
+    #lightboxCaption { position:absolute; bottom:20px; left:0; right:0; text-align:center; color:#ccc; font-size:.8rem; }
+  </style>
+</head>
+<body class="bg-gray-50">
+
+<!-- NAVBAR -->
+<nav class="bg-white shadow-sm sticky top-0 z-50">
+  <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+    <a href="index.html" class="font-extrabold text-xl text-blue-800">Labor<span class="text-orange-500">Connect</span></a>
+    <a href="index.html" class="text-sm text-blue-700 hover:underline">← Về trang chủ</a>
+  </div>
+</nav>
+
+<!-- LOADING STATE -->
+<div id="loadingState" class="max-w-5xl mx-auto px-4 py-16 text-center text-gray-400">
+  <div class="animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-800 mx-auto mb-4"></div>
+  <p>Đang tải hồ sơ công ty...</p>
+</div>
+
+<!-- ERROR STATE -->
+<div id="errorState" class="hidden max-w-5xl mx-auto px-4 py-16 text-center text-red-400">
+  <div class="text-5xl mb-4">😞</div>
+  <p class="text-lg">Không tìm thấy thông tin công ty</p>
+  <a href="index.html" class="mt-4 inline-block text-blue-600 hover:underline">← Về trang chủ</a>
+</div>
+
+<!-- COMPANY PROFILE (hidden until loaded) -->
+<div id="profilePage" class="hidden">
+
+  <!-- COVER / HEADER CÔNG TY -->
+  <div class="bg-gradient-to-r from-blue-900 to-blue-700 h-40 relative">
+    <div class="max-w-5xl mx-auto px-4 h-full flex items-end pb-0">
+      <!-- Logo nổi lên từ cover -->
+      <div id="logoWrap" class="relative -mb-10 z-10">
+        <img id="companyLogo" src="" alt="Logo"
+          class="w-24 h-24 rounded-2xl border-4 border-white shadow-lg object-cover bg-white" />
+      </div>
+    </div>
+  </div>
+
+  <!-- INFO BAR -->
+  <div class="bg-white border-b shadow-sm">
+    <div class="max-w-5xl mx-auto px-4 pt-14 pb-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div>
+        <h1 id="companyName" class="text-2xl font-extrabold text-gray-900"></h1>
+        <div id="companyMeta" class="flex flex-wrap gap-3 mt-2 text-sm text-gray-500"></div>
+      </div>
+      <button onclick="followCompany()"
+        class="px-6 py-2.5 rounded-xl bg-blue-800 text-white font-semibold hover:bg-blue-900 transition-colors text-sm flex-shrink-0">
+        ❤️ Theo dõi công ty
+      </button>
+    </div>
+
+    <!-- TABS -->
+    <div class="max-w-5xl mx-auto px-4 flex gap-6 border-t mt-2">
+      <button class="tab-btn active py-3 text-sm transition-colors" onclick="switchTab('overview')">Giới thiệu</button>
+      <button class="tab-btn py-3 text-sm text-gray-500 transition-colors" onclick="switchTab('jobs')">Tuyển dụng</button>
+      <button class="tab-btn py-3 text-sm text-gray-500 transition-colors" onclick="switchTab('gallery')">Hình ảnh</button>
+    </div>
+  </div>
+
+  <!-- TAB CONTENT -->
+  <div class="max-w-5xl mx-auto px-4 py-8">
+
+    <!-- TAB: GIỚI THIỆU -->
+    <div id="tab-overview" class="tab-content active grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <!-- Bên trái: Mô tả -->
+      <div class="lg:col-span-2 space-y-6">
+        <!-- Video YouTube review môi trường làm việc -->
+        <div id="videoSection" class="hidden">
+          <h2 class="text-lg font-bold text-gray-800 mb-3">🎬 Video môi trường làm việc</h2>
+          <div class="yt-wrapper shadow-md">
+            <iframe id="ytEmbed" src="" title="Video công ty"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowfullscreen></iframe>
+          </div>
+        </div>
+
+        <!-- Mô tả công ty (Rich Text / HTML) -->
+        <div>
+          <h2 class="text-lg font-bold text-gray-800 mb-3">📋 Giới thiệu công ty</h2>
+          <div id="companyDescription" class="rich-content bg-white rounded-xl border border-gray-100 p-5 shadow-sm text-sm"></div>
+        </div>
+      </div>
+
+      <!-- Bên phải: Thông tin nhanh -->
+      <div class="space-y-4">
+        <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+          <h3 class="font-bold text-gray-700 mb-3 text-sm uppercase tracking-wide">Thông tin công ty</h3>
+          <ul id="companyInfo" class="space-y-2.5 text-sm text-gray-600"></ul>
+        </div>
+        <div class="bg-orange-50 rounded-xl border border-orange-100 p-5">
+          <p class="text-sm font-semibold text-orange-700 mb-2">Đang tuyển dụng</p>
+          <p id="jobCountBadge" class="text-3xl font-extrabold text-orange-500"></p>
+          <p class="text-xs text-orange-600 mt-1">vị trí mở</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: TUYỂN DỤNG -->
+    <div id="tab-jobs" class="tab-content">
+      <h2 class="text-lg font-bold text-gray-800 mb-4">Vị trí đang tuyển dụng</h2>
+      <div id="companyJobs" class="space-y-3"></div>
+    </div>
+
+    <!-- TAB: HÌNH ẢNH GALLERY -->
+    <div id="tab-gallery" class="tab-content">
+      <h2 class="text-lg font-bold text-gray-800 mb-4">Hình ảnh công ty</h2>
+      <div id="galleryGrid" class="grid grid-cols-2 md:grid-cols-3 gap-4"></div>
+      <div id="emptyGallery" class="hidden text-center text-gray-400 py-16">
+        <div class="text-5xl mb-3">📷</div>
+        <p class="font-medium">Công ty chưa cập nhật hình ảnh</p>
+        <p class="text-sm mt-1">Hãy quay lại sau!</p>
+      </div>
+    </div>
+
+  </div><!-- end TAB CONTENT -->
+</div><!-- end profilePage -->
+
+<script>
+  const API = 'http://localhost:5000/api';
+
+  // Lấy employerId từ URL ?id=...
+  const urlParams = new URLSearchParams(window.location.search);
+  const employerId = urlParams.get('id');
+
+  // ==========================================
+  // LOAD HỒ SƠ CÔNG TY
+  // ==========================================
+  async function loadCompanyProfile() {
+    if (!employerId) { showError(); return; }
+
+    try {
+      const r    = await fetch(`${API}/employer/${employerId}`);
+      const data = await r.json();
+
+      if (!data.success) { showError(); return; }
+
+      renderProfile(data.employer);
+      await loadCompanyJobs();
+
+      document.getElementById('loadingState').classList.add('hidden');
+      document.getElementById('profilePage').classList.remove('hidden');
+    } catch (err) {
+      console.error(err);
+      showError();
+    }
+  }
+
+  function showError() {
+    document.getElementById('loadingState').classList.add('hidden');
+    document.getElementById('errorState').classList.remove('hidden');
+  }
+
+  // ==========================================
+  // RENDER THÔNG TIN CÔNG TY
+  // ==========================================
+  function renderProfile(employer) {
+    const p = employer.employerProfile || {};
+
+    // Logo
+    const logo = p.logo || 'https://via.placeholder.com/96?text=Logo';
+    document.getElementById('companyLogo').src = logo;
+    document.title = `${p.companyName || 'Công ty'} — LaborConnect`;
+
+    // Tên + Meta
+    document.getElementById('companyName').textContent = p.companyName || 'Tên công ty';
+
+    const metaItems = [
+      p.industry    && `🏢 ${p.industry}`,
+      p.companySize && `👥 ${p.companySize} nhân viên`,
+      p.province?.name && `📍 ${p.province.name}`,
+      p.website     && `<a href="${p.website}" target="_blank" class="text-blue-600 hover:underline">🌐 Website</a>`,
+    ].filter(Boolean);
+    document.getElementById('companyMeta').innerHTML = metaItems.map(i =>
+      `<span class="bg-gray-100 rounded-full px-3 py-1">${i}</span>`
+    ).join('');
+
+    // Video YouTube — NHÚNG EMBED URL
+    if (p.videoEmbedUrl || p.videoUrl) {
+      let embedUrl = p.videoEmbedUrl;
+      if (!embedUrl && p.videoUrl) {
+        const match = p.videoUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w\-]{11})/);
+        embedUrl = match ? `https://www.youtube.com/embed/${match[1]}` : null;
+      }
+      if (embedUrl) {
+        document.getElementById('ytEmbed').src = embedUrl;
+        document.getElementById('videoSection').classList.remove('hidden');
+      }
+    }
+
+    // Mô tả (Rich Text / HTML) — Sử dụng innerHTML để render HTML từ editor
+    // QUAN TRỌNG: Trong production, nên sanitize bằng DOMPurify trước khi render
+    const desc = p.description || '<p>Chưa có thông tin giới thiệu.</p>';
+    document.getElementById('companyDescription').innerHTML = desc;
+
+    // Thông tin nhanh
+    const infoItems = [
+      { icon: '🏭', label: 'Ngành nghề',    value: p.industry     || '—' },
+      { icon: '👥', label: 'Quy mô',        value: p.companySize  || '—' },
+      { icon: '📍', label: 'Địa chỉ',       value: p.province?.name ? `${p.address || ''} ${p.province.name}` : '—' },
+      { icon: '📞', label: 'Điện thoại',    value: p.phone        || '—' },
+      { icon: '📅', label: 'Thành lập',     value: p.founded      ? `Năm ${p.founded}` : '—' },
+      { icon: '🔢', label: 'Mã số thuế',    value: p.taxCode      || '—' },
+    ];
+    document.getElementById('companyInfo').innerHTML = infoItems.map(i =>
+      `<li class="flex items-start gap-2">
+        <span class="w-5 flex-shrink-0">${i.icon}</span>
+        <span><span class="text-gray-400">${i.label}:</span> <strong>${i.value}</strong></span>
+      </li>`
+    ).join('');
+
+    // Gallery với lightbox
+    const gallery = p.galleryImages || [];
+    if (gallery.length > 0) {
+      // Lưu danh sách để lightbox dùng
+      window._galleryImages = gallery;
+      document.getElementById('galleryGrid').innerHTML = gallery.map((img, idx) => `
+        <div class="relative group rounded-xl overflow-hidden aspect-video bg-gray-100 shadow-sm border border-gray-100"
+             onclick="openLightbox(${idx})">
+          <img src="${img}" alt="Hình ảnh ${idx+1}"
+            class="gallery-img w-full h-full object-cover"
+            onerror="this.parentElement.style.display='none'" />
+          <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+            <span class="bg-black/50 text-white text-xs px-3 py-1.5 rounded-full">🔍 Xem lớn</span>
+          </div>
+          <span class="absolute bottom-2 right-2 bg-black/40 text-white text-xs px-1.5 py-0.5 rounded-md">${idx+1}/${gallery.length}</span>
+        </div>`).join('');
+    } else {
+      document.getElementById('emptyGallery').classList.remove('hidden');
+    }
+  }
+
+  // ==========================================
+  // LOAD TIN TUYỂN DỤNG CỦA CÔNG TY
+  // ==========================================
+  async function loadCompanyJobs() {
+    try {
+      const r    = await fetch(`${API}/jobs?employer=${employerId}&limit=20`);
+      const data = await r.json();
+      const jobs = data.jobs || [];
+
+      document.getElementById('jobCountBadge').textContent = jobs.length;
+
+      if (!jobs.length) {
+        document.getElementById('companyJobs').innerHTML = `
+          <div class="text-center text-gray-400 py-12">
+            <p>Hiện không có vị trí tuyển dụng nào</p>
+          </div>`;
+        return;
+      }
+
+      document.getElementById('companyJobs').innerHTML = jobs.map(job => {
+        const wts = (job.workTypes || []).map(wt =>
+          `<span class="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">${wt.icon || ''} ${wt.name}</span>`
+        ).join(' ');
+        const salary = job.salary?.isNegotiate ? 'Thỏa thuận' :
+          job.salary?.min ? `${(job.salary.min/1e6).toFixed(0)}–${(job.salary.max/1e6).toFixed(0)} triệu` : 'Liên hệ';
+
+        return `
+          <div class="job-row bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-center justify-between gap-4 cursor-pointer transition-colors"
+               onclick="window.location='job-detail.html?id=${job._id}'">
+            <div class="min-w-0">
+              <p class="font-semibold text-gray-800 truncate">${job.title}</p>
+              <div class="flex flex-wrap gap-1.5 mt-1.5">${wts}</div>
+              <p class="text-xs text-gray-400 mt-1.5">📍 ${job.province?.name || ''}</p>
+            </div>
+            <div class="text-right flex-shrink-0">
+              <p class="font-bold text-orange-500 text-sm">${salary}</p>
+              <a href="job-detail.html?id=${job._id}"
+                 class="mt-2 inline-block text-xs text-white bg-blue-800 hover:bg-blue-900 px-3 py-1.5 rounded-lg transition-colors">
+                Xem chi tiết
+              </a>
+            </div>
+          </div>`;
+      }).join('');
+    } catch (err) {
+      console.error('Lỗi tải jobs:', err);
+    }
+  }
+
+  // ==========================================
+  // CHUYỂN TAB
+  // ==========================================
+  function switchTab(tabName) {
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+    event.currentTarget.classList.add('active');
+    document.getElementById(`tab-${tabName}`).classList.add('active');
+  }
+
+  function followCompany() {
+    const token = localStorage.getItem('lc_token');
+    if (!token) {
+      alert('Vui lòng đăng nhập để theo dõi công ty!');
+      window.location.href = 'login.html';
+      return;
+    }
+    fetch(`${API}/candidate/followed-companies/${employerId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+    }).then(r => r.json()).then(d => {
+      if (d.success) alert('✅ ' + d.message);
+      else alert(d.message);
+    });
+  }
+
+  // ==================== LIGHTBOX ====================
+  let _lbIdx = 0;
+
+  function openLightbox(idx) {
+    const imgs = window._galleryImages || [];
+    if (!imgs.length) return;
+    _lbIdx = idx;
+    updateLightbox();
+    document.getElementById('lightbox').classList.add('open');
+    document.addEventListener('keydown', lightboxKeyHandler);
+  }
+
+  function closeLightbox(e) {
+    if (e && e.target !== document.getElementById('lightbox') && e.type !== 'click') return;
+    document.getElementById('lightbox').classList.remove('open');
+    document.removeEventListener('keydown', lightboxKeyHandler);
+  }
+
+  function lightboxNav(dir) {
+    const imgs = window._galleryImages || [];
+    _lbIdx = (_lbIdx + dir + imgs.length) % imgs.length;
+    updateLightbox();
+  }
+
+  function updateLightbox() {
+    const imgs = window._galleryImages || [];
+    document.getElementById('lightboxImg').src = imgs[_lbIdx];
+    document.getElementById('lightboxCaption').textContent = `${_lbIdx + 1} / ${imgs.length}`;
+    document.getElementById('lightboxPrev').style.display = imgs.length > 1 ? '' : 'none';
+    document.getElementById('lightboxNext').style.display = imgs.length > 1 ? '' : 'none';
+  }
+
+  function lightboxKeyHandler(e) {
+    if (e.key === 'Escape')     closeLightbox({});
+    if (e.key === 'ArrowLeft')  lightboxNav(-1);
+    if (e.key === 'ArrowRight') lightboxNav(1);
+  }
+
+  // Khởi động
+  loadCompanyProfile();
+</script>
+<!-- LIGHTBOX -->
+<div id="lightbox" onclick="closeLightbox(event)">
+  <span id="lightboxClose" onclick="closeLightbox()">&times;</span>
+  <button id="lightboxPrev" onclick="lightboxNav(-1);event.stopPropagation()">&#8249;</button>
+  <img id="lightboxImg" src="" alt="Gallery" />
+  <button id="lightboxNext" onclick="lightboxNav(1);event.stopPropagation()">&#8250;</button>
+  <p id="lightboxCaption"></p>
+</div>
+
+</body>
+</html>

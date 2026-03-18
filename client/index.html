@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LaborConnect — Kết nối việc làm</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --primary: #0F4C81;
+      --accent:  #F97316;
+      --surface: #F0F4FA;
+    }
+    * { font-family: 'Be Vietnam Pro', sans-serif; }
+    .hero-bg {
+      background: linear-gradient(135deg, #0F4C81 0%, #1a6bb5 50%, #0d3d6b 100%);
+    }
+    .job-card:hover { transform: translateY(-3px); transition: all .25s ease; }
+    .tag { @apply inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full; }
+    .btn-primary { @apply bg-orange-500 hover:bg-orange-600 text-white font-semibold px-5 py-2.5 rounded-lg transition-all; }
+    .btn-outline  { @apply border border-blue-700 text-blue-700 hover:bg-blue-50 font-semibold px-5 py-2.5 rounded-lg transition-all; }
+    select:focus, input:focus { outline: 2px solid #0F4C81; outline-offset: 2px; }
+    .skeleton { animation: pulse 1.5s infinite; background: #e2e8f0; border-radius: 6px; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+<!-- ==================== NAVBAR ==================== -->
+<nav class="bg-white shadow-sm sticky top-0 z-50">
+  <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+    <a href="index.html" class="flex items-center gap-2">
+      <span class="text-blue-800 font-extrabold text-xl tracking-tight">Labor<span class="text-orange-500">Connect</span></span>
+    </a>
+    <div class="hidden md:flex items-center gap-6 text-sm font-medium text-gray-600">
+      <a href="#jobs" class="hover:text-blue-700">Việc làm</a>
+      <a href="company-profile.html" class="hover:text-blue-700">Công ty</a>
+    </div>
+    <div class="flex items-center gap-3" id="navAuth">
+      <a href="login.html" class="btn-outline text-sm py-2 px-4">Đăng nhập</a>
+      <a href="register.html" class="btn-primary text-sm py-2 px-4">Đăng ký</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ==================== HERO ==================== -->
+<section class="hero-bg py-16 px-4 text-white">
+  <div class="max-w-4xl mx-auto text-center">
+    <h1 class="text-4xl md:text-5xl font-extrabold leading-tight mb-4">
+      Tìm việc làm <span class="text-orange-400">phù hợp</span> với bạn
+    </h1>
+    <p class="text-blue-100 text-lg mb-10">Hàng ngàn cơ hội việc làm từ các nhà tuyển dụng uy tín trên toàn quốc</p>
+
+    <!-- Search Box -->
+    <div class="bg-white rounded-2xl shadow-2xl p-4 md:p-6 text-gray-800">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <!-- Từ khóa -->
+        <div class="md:col-span-1">
+          <label class="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Từ khóa</label>
+          <input id="searchKeyword" type="text" placeholder="Vị trí, công ty..."
+            class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm" />
+        </div>
+        <!-- Tỉnh/Thành -->
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Tỉnh/Thành</label>
+          <select id="filterProvince" class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white"
+            onchange="loadDistricts(this.value)">
+            <option value="">Tất cả</option>
+          </select>
+        </div>
+        <!-- Quận/Huyện -->
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Quận/Huyện</label>
+          <select id="filterDistrict" class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white">
+            <option value="">Tất cả</option>
+          </select>
+        </div>
+        <!-- Hình thức -->
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Hình thức</label>
+          <select id="filterWorkType" class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white">
+            <option value="">Tất cả</option>
+          </select>
+        </div>
+      </div>
+      <div class="mt-4 flex justify-center">
+        <button onclick="searchJobs()" class="btn-primary px-10 py-3 text-base">
+          🔍 Tìm kiếm việc làm
+        </button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== STATS ==================== -->
+<section class="bg-white py-6 border-b">
+  <div class="max-w-5xl mx-auto px-4 grid grid-cols-3 gap-4 text-center">
+    <div><p class="text-3xl font-extrabold text-blue-800" id="statJobs">—</p><p class="text-sm text-gray-500 mt-1">Tin tuyển dụng</p></div>
+    <div><p class="text-3xl font-extrabold text-orange-500" id="statEmployers">—</p><p class="text-sm text-gray-500 mt-1">Nhà tuyển dụng</p></div>
+    <div><p class="text-3xl font-extrabold text-blue-800" id="statCandidates">—</p><p class="text-sm text-gray-500 mt-1">Ứng viên</p></div>
+  </div>
+</section>
+
+<!-- ==================== JOB LIST ==================== -->
+<section id="jobs" class="max-w-7xl mx-auto px-4 py-12">
+  <div class="flex items-center justify-between mb-6">
+    <h2 class="text-2xl font-bold text-gray-800">Tin tuyển dụng mới nhất</h2>
+    <span class="text-sm text-gray-500" id="jobCount"></span>
+  </div>
+
+  <!-- Loading skeleton -->
+  <div id="skeletonGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+    <div class="skeleton h-48 rounded-xl"></div>
+    <div class="skeleton h-48 rounded-xl"></div>
+    <div class="skeleton h-48 rounded-xl"></div>
+    <div class="skeleton h-48 rounded-xl"></div>
+    <div class="skeleton h-48 rounded-xl"></div>
+    <div class="skeleton h-48 rounded-xl"></div>
+  </div>
+
+  <!-- Job cards -->
+  <div id="jobGrid" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+
+  <!-- Empty state -->
+  <div id="emptyState" class="hidden text-center py-20 text-gray-400">
+    <div class="text-6xl mb-4">🔍</div>
+    <p class="text-lg font-medium">Không tìm thấy việc làm phù hợp</p>
+    <p class="text-sm mt-1">Hãy thử thay đổi bộ lọc tìm kiếm</p>
+  </div>
+
+  <!-- Pagination -->
+  <div id="pagination" class="flex justify-center gap-2 mt-10"></div>
+</section>
+
+<!-- ==================== FOOTER ==================== -->
+<footer class="bg-blue-900 text-blue-200 py-8 mt-8">
+  <div class="max-w-7xl mx-auto px-4 text-center text-sm">
+    <p class="font-semibold text-white text-base mb-1">LaborConnect</p>
+    <p>Hệ thống kết nối cung cầu lao động &copy; 2025</p>
+  </div>
+</footer>
+
+<script>
+  const API = 'http://localhost:5000/api';
+  let currentPage = 1;
+  let allLocations = [];
+
+  // ==========================================
+  // KHỞI TẠO TRANG
+  // ==========================================
+  async function init() {
+    await Promise.all([loadLocations(), loadWorkTypes(), loadStats()]);
+    await loadJobs();
+    checkAuthNav();
+  }
+
+  // ==========================================
+  // CHECK AUTH → Hiển thị đúng nav
+  // ==========================================
+  function checkAuthNav() {
+    const token = localStorage.getItem('lc_token');
+    const user  = JSON.parse(localStorage.getItem('lc_user') || 'null');
+    if (token && user) {
+      document.getElementById('navAuth').innerHTML = `
+        <span class="text-sm text-gray-600">Xin chào, <strong>${user.displayName || user.email}</strong></span>
+        <button onclick="logout()" class="text-sm text-red-500 hover:underline ml-2">Đăng xuất</button>
+      `;
+    }
+  }
+
+  function logout() {
+    localStorage.removeItem('lc_token');
+    localStorage.removeItem('lc_user');
+    location.reload();
+  }
+
+  // ==========================================
+  // LOAD DANH MỤC: Địa chính
+  // ==========================================
+  async function loadLocations() {
+    try {
+      const r = await fetch(`${API}/locations`);
+      const data = await r.json();
+      allLocations = data.locations || [];
+      const sel = document.getElementById('filterProvince');
+      allLocations.forEach(loc => {
+        sel.innerHTML += `<option value="${loc._id}" data-slug="${loc.slug}">${loc.name}</option>`;
+      });
+    } catch (e) { console.error('Lỗi tải địa chính:', e); }
+  }
+
+  // Load quận/huyện theo tỉnh đã chọn
+  async function loadDistricts(provinceId) {
+    const dSel = document.getElementById('filterDistrict');
+    dSel.innerHTML = '<option value="">Tất cả</option>';
+    if (!provinceId) return;
+
+    const province = allLocations.find(l => l._id === provinceId);
+    if (!province?.districts) return;
+
+    province.districts
+      .filter(d => d.isActive)
+      .forEach(d => {
+        dSel.innerHTML += `<option value="${d.slug}">${d.name}</option>`;
+      });
+  }
+
+  // ==========================================
+  // LOAD DANH MỤC: Hình thức việc làm
+  // ==========================================
+  async function loadWorkTypes() {
+    try {
+      const r = await fetch(`${API}/worktypes`);
+      const data = await r.json();
+      const sel = document.getElementById('filterWorkType');
+      (data.workTypes || []).forEach(wt => {
+        sel.innerHTML += `<option value="${wt._id}">${wt.icon} ${wt.name}</option>`;
+      });
+    } catch (e) { console.error('Lỗi tải work types:', e); }
+  }
+
+  // ==========================================
+  // LOAD THỐNG KÊ
+  // ==========================================
+  async function loadStats() {
+    try {
+      const r = await fetch(`${API}/admin/stats`);
+      // Nếu không phải admin sẽ 403 → dùng số mặc định
+      if (r.ok) {
+        const data = await r.json();
+        document.getElementById('statJobs').textContent      = data.stats.jobs.approved.toLocaleString();
+        document.getElementById('statEmployers').textContent = data.stats.users.employers.toLocaleString();
+        document.getElementById('statCandidates').textContent = data.stats.users.candidates.toLocaleString();
+      }
+    } catch (e) {}
+  }
+
+  // ==========================================
+  // TÌM KIẾM / LỌC CÔNG VIỆC
+  // ==========================================
+  function searchJobs() {
+    currentPage = 1;
+    loadJobs();
+  }
+
+  async function loadJobs(page = currentPage) {
+    document.getElementById('skeletonGrid').classList.remove('hidden');
+    document.getElementById('jobGrid').classList.add('hidden');
+    document.getElementById('emptyState').classList.add('hidden');
+
+    const keyword   = document.getElementById('searchKeyword').value.trim();
+    const province  = document.getElementById('filterProvince').value;
+    const district  = document.getElementById('filterDistrict').value;
+    const workTypes = document.getElementById('filterWorkType').value;
+
+    const params = new URLSearchParams({ page, limit: 9 });
+    if (keyword)   params.set('keyword',   keyword);
+    if (province)  params.set('province',  province);
+    if (district)  params.set('district',  district);
+    if (workTypes) params.set('workTypes', workTypes);
+
+    try {
+      const r    = await fetch(`${API}/jobs?${params}`);
+      const data = await r.json();
+
+      document.getElementById('skeletonGrid').classList.add('hidden');
+
+      if (!data.jobs?.length) {
+        document.getElementById('emptyState').classList.remove('hidden');
+        document.getElementById('jobCount').textContent = '';
+        document.getElementById('pagination').innerHTML = '';
+        return;
+      }
+
+      document.getElementById('jobCount').textContent = `Tìm thấy ${data.total} việc làm`;
+      renderJobs(data.jobs);
+      renderPagination(data.page, data.totalPages);
+    } catch (err) {
+      document.getElementById('skeletonGrid').classList.add('hidden');
+      document.getElementById('emptyState').classList.remove('hidden');
+      console.error('Lỗi tải việc làm:', err);
+    }
+  }
+
+  // ==========================================
+  // RENDER JOB CARDS
+  // ==========================================
+  function renderJobs(jobs) {
+    const grid = document.getElementById('jobGrid');
+    grid.innerHTML = jobs.map(job => {
+      const logo    = job.employer?.employerProfile?.logo || 'https://via.placeholder.com/60?text=Co';
+      const company = job.employer?.employerProfile?.companyName || 'Công ty';
+      const wts     = (job.workTypes || []).map(wt =>
+        `<span class="tag bg-blue-50 text-blue-700">${wt.icon || '💼'} ${wt.name}</span>`
+      ).join('');
+      const salary  = job.salary?.isNegotiate
+        ? 'Thỏa thuận'
+        : job.salary?.min
+          ? `${(job.salary.min/1e6).toFixed(0)}–${(job.salary.max/1e6).toFixed(0)} triệu`
+          : 'Liên hệ';
+      const location = job.province?.name || '';
+
+      return `
+        <div class="job-card bg-white rounded-xl border border-gray-100 shadow-sm p-5 hover:shadow-md cursor-pointer"
+             onclick="window.location='job-detail.html?id=${job._id}'">
+          <div class="flex items-start gap-3 mb-3">
+            <img src="${logo}" alt="${company}" class="w-12 h-12 rounded-lg object-cover border border-gray-100 flex-shrink-0" />
+            <div class="min-w-0">
+              <h3 class="font-bold text-gray-900 truncate text-sm leading-snug">${job.title}</h3>
+              <p class="text-gray-500 text-xs mt-0.5 truncate">${company}</p>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-1.5 mb-3">${wts}</div>
+          <div class="flex items-center justify-between text-xs">
+            <span class="flex items-center gap-1 text-gray-500">📍 ${location}</span>
+            <span class="font-semibold text-orange-500">${salary}</span>
+          </div>
+          ${job.isHighlight ? '<div class="mt-2"><span class="tag bg-orange-50 text-orange-600 text-xs">⭐ Nổi bật</span></div>' : ''}
+        </div>`;
+    }).join('');
+
+    grid.classList.remove('hidden');
+  }
+
+  // ==========================================
+  // RENDER PAGINATION
+  // ==========================================
+  function renderPagination(page, totalPages) {
+    const nav = document.getElementById('pagination');
+    if (totalPages <= 1) { nav.innerHTML = ''; return; }
+
+    let html = '';
+    for (let i = 1; i <= totalPages; i++) {
+      html += `<button onclick="gotoPage(${i})"
+        class="w-9 h-9 rounded-lg text-sm font-medium transition-colors
+          ${i === page ? 'bg-blue-800 text-white' : 'bg-white border text-gray-600 hover:bg-gray-100'}"
+      >${i}</button>`;
+    }
+    nav.innerHTML = html;
+  }
+
+  function gotoPage(page) {
+    currentPage = page;
+    loadJobs(page);
+    document.getElementById('jobs').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  // Khởi động
+  init();
+</script>
+</body>
+</html>

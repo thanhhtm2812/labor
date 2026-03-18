@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Panel — LaborConnect</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    * { font-family: 'Be Vietnam Pro', sans-serif; }
+    .sidebar-link { @apply flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors w-full text-left; }
+    .sidebar-link.active { @apply bg-blue-800 text-white; }
+    .sidebar-link:not(.active) { @apply text-gray-600 hover:bg-gray-100; }
+    .section { display: none; }
+    .section.active { display: block; }
+    .input-base  { width:100%; border:1px solid #e5e7eb; border-radius:10px; padding:9px 12px; font-size:.875rem; }
+    .input-base:focus { outline:2px solid #1e40af; outline-offset:2px; }
+    .label-xs { display:block; font-size:.7rem; font-weight:600; color:#6b7280; margin-bottom:5px; text-transform:uppercase; letter-spacing:.05em; }
+    .status-badge { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+<script>
+  const _token = localStorage.getItem('lc_token');
+  const _user  = JSON.parse(localStorage.getItem('lc_user') || 'null');
+  if (!_token || !_user || _user.role !== 'admin') {
+    alert('Bạn không có quyền truy cập trang này!');
+    window.location.href = 'login.html';
+  }
+</script>
+
+<div class="flex min-h-screen">
+
+  <!-- SIDEBAR -->
+  <aside class="w-60 bg-white border-r border-gray-100 shadow-sm flex-shrink-0 flex flex-col">
+    <div class="p-5 border-b border-gray-100">
+      <p class="font-extrabold text-lg text-blue-800">Labor<span class="text-orange-500">Connect</span></p>
+      <span class="inline-block mt-1 text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold">Admin Panel</span>
+    </div>
+    <nav class="p-3 flex-1 space-y-1">
+      <button onclick="switchSection('dashboard')"  class="sidebar-link active" id="nav-dashboard">📊 Dashboard</button>
+      <button onclick="switchSection('jobs')"       class="sidebar-link" id="nav-jobs">📋 Duyệt tin</button>
+      <button onclick="switchSection('users')"      class="sidebar-link" id="nav-users">👥 Người dùng</button>
+      <button onclick="switchSection('locations')"  class="sidebar-link" id="nav-locations">📍 Địa chính</button>
+      <button onclick="switchSection('worktypes')"     class="sidebar-link" id="nav-worktypes">💼 Hình thức VL</button>
+      <button onclick="switchSection('verifications')" class="sidebar-link" id="nav-verifications">🔍 Xác minh CV</button>
+    </nav>
+    <div class="p-3 border-t border-gray-100 space-y-1">
+      <a href="index.html" class="sidebar-link">🌐 Xem trang chủ</a>
+      <button onclick="logout()" class="sidebar-link text-red-500 hover:bg-red-50">🚪 Đăng xuất</button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="flex-1 p-6 overflow-auto">
+    <div id="globalAlert" class="hidden mb-5 px-4 py-3 rounded-xl text-sm font-medium"></div>
+
+    <!-- ==================== DASHBOARD ==================== -->
+    <div id="section-dashboard" class="section active">
+      <h1 class="text-2xl font-extrabold text-gray-800 mb-6">Dashboard</h1>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-center">
+          <p class="text-3xl font-extrabold text-blue-800" id="ds_totalUsers">—</p>
+          <p class="text-xs text-gray-500 mt-1">Người dùng</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-center">
+          <p class="text-3xl font-extrabold text-green-600" id="ds_employers">—</p>
+          <p class="text-xs text-gray-500 mt-1">Nhà tuyển dụng</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-center">
+          <p class="text-3xl font-extrabold text-purple-600" id="ds_candidates">—</p>
+          <p class="text-xs text-gray-500 mt-1">Ứng viên</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-center">
+          <p class="text-3xl font-extrabold text-yellow-500" id="ds_pendingJobs">—</p>
+          <p class="text-xs text-gray-500 mt-1">Tin chờ duyệt</p>
+        </div>
+      </div>
+      <div class="bg-orange-50 border border-orange-200 rounded-xl p-4 text-sm text-orange-700">
+        <strong>📌 Nhắc nhở:</strong> Có <span id="ds_pendingAlert" class="font-bold">0</span> tin tuyển dụng đang chờ duyệt.
+        <button onclick="switchSection('jobs')" class="ml-2 underline font-semibold">Duyệt ngay →</button>
+      </div>
+    </div>
+
+    <!-- ==================== DUYỆT TIN ==================== -->
+    <div id="section-jobs" class="section">
+      <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-extrabold text-gray-800">Quản lý tin tuyển dụng</h1>
+        <div class="flex gap-2">
+          <select id="jobStatusFilter" class="input-base w-auto bg-white text-sm" onchange="loadAdminJobs()">
+            <option value="">Tất cả</option>
+            <option value="pending" selected>Chờ duyệt</option>
+            <option value="approved">Đã duyệt</option>
+            <option value="rejected">Từ chối</option>
+          </select>
+        </div>
+      </div>
+      <div id="adminJobsList" class="space-y-3"></div>
+    </div>
+
+    <!-- ==================== NGƯỜI DÙNG ==================== -->
+    <div id="section-users" class="section">
+      <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+        <h1 class="text-2xl font-extrabold text-gray-800">Quản lý người dùng</h1>
+        <div class="flex gap-2">
+          <select id="userRoleFilter" class="input-base w-auto bg-white text-sm" onchange="loadAdminUsers()">
+          <option value="">Tất cả</option>
+          <option value="candidate">Ứng viên</option>
+          <option value="employer">Nhà tuyển dụng</option>
+          </select>
+          <button onclick="document.getElementById('addEmployerForm').classList.toggle('hidden')"
+            class="bg-blue-800 hover:bg-blue-900 text-white text-sm font-semibold px-4 py-2 rounded-xl">+ Thêm Employer</button>
+        </div>
+      </div>
+
+      <!-- Form thêm Employer -->
+      <div id="addEmployerForm" class="hidden bg-blue-50 border border-blue-200 rounded-2xl p-5 mb-5">
+        <h3 class="font-bold text-blue-800 mb-3">Tạo tài khoản Nhà tuyển dụng mới</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div><label class="label-xs">Email *</label><input id="newEmpEmail" type="email" class="input-base" placeholder="hr@company.vn" /></div>
+          <div><label class="label-xs">Mật khẩu *</label><input id="newEmpPassword" type="password" class="input-base" placeholder="Tối thiểu 6 ký tự" /></div>
+          <div><label class="label-xs">Tên công ty *</label><input id="newEmpCompany" type="text" class="input-base" placeholder="Công ty ABC" /></div>
+        </div>
+        <div class="flex gap-2 mt-3">
+          <button onclick="document.getElementById('addEmployerForm').classList.add('hidden')" class="border border-gray-200 text-gray-600 text-sm px-4 py-2 rounded-xl hover:bg-gray-50">Hủy</button>
+          <button onclick="adminAddEmployer()" class="bg-blue-800 text-white text-sm font-semibold px-5 py-2 rounded-xl hover:bg-blue-900">✅ Tạo tài khoản</button>
+        </div>
+      </div>
+      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 text-xs uppercase text-gray-500 font-semibold">
+            <tr>
+              <th class="px-4 py-3 text-left">Email</th>
+              <th class="px-4 py-3 text-left">Tên</th>
+              <th class="px-4 py-3 text-left">Vai trò</th>
+              <th class="px-4 py-3 text-left">Trạng thái</th>
+              <th class="px-4 py-3 text-left">Ngày đăng ký</th>
+              <th class="px-4 py-3 text-center">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody id="usersTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ==================== ĐỊA CHÍNH ==================== -->
+    <div id="section-locations" class="section">
+      <h1 class="text-2xl font-extrabold text-gray-800 mb-6">Quản lý địa chính</h1>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        <!-- Thêm tỉnh/thành -->
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <h2 class="font-bold text-gray-700 mb-4">➕ Thêm Tỉnh/Thành phố</h2>
+          <div class="space-y-3">
+            <div><label class="label-xs">Tên Tỉnh/Thành *</label>
+              <input id="loc_name" type="text" class="input-base" placeholder="Hồ Chí Minh" /></div>
+            <div><label class="label-xs">Slug *</label>
+              <input id="loc_slug" type="text" class="input-base" placeholder="ho-chi-minh" /></div>
+            <div><label class="label-xs">Loại</label>
+              <select id="loc_type" class="input-base bg-white">
+                <option value="province">Tỉnh</option>
+                <option value="city">Thành phố</option>
+              </select>
+            </div>
+            <div><label class="label-xs">Miền</label>
+              <select id="loc_region" class="input-base bg-white">
+                <option value="north">Miền Bắc</option>
+                <option value="central">Miền Trung</option>
+                <option value="south">Miền Nam</option>
+              </select>
+            </div>
+            <button onclick="addLocation()"
+              class="w-full bg-blue-800 hover:bg-blue-900 text-white font-semibold py-2.5 rounded-xl transition-all text-sm">
+              Thêm tỉnh/thành
+            </button>
+          </div>
+        </div>
+
+        <!-- Danh sách tỉnh/thành -->
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <h2 class="font-bold text-gray-700 mb-4">Danh sách tỉnh/thành</h2>
+          <div id="locationsList" class="space-y-2 max-h-80 overflow-y-auto"></div>
+        </div>
+
+        <!-- Quản lý Quận/Huyện -->
+        <div class="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <h2 class="font-bold text-gray-700 mb-4">🏘️ Quản lý Quận/Huyện</h2>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div class="md:col-span-1">
+              <label class="label-xs">Chọn Tỉnh/Thành</label>
+              <select id="dist_provinceSelect" class="input-base bg-white" onchange="loadDistrictManage(this.value)">
+                <option value="">-- Chọn tỉnh/thành --</option>
+              </select>
+            </div>
+            <div>
+              <label class="label-xs">Tên Quận/Huyện *</label>
+              <input id="dist_name" type="text" class="input-base" placeholder="Quận 1" />
+            </div>
+            <div>
+              <label class="label-xs">Slug *</label>
+              <input id="dist_slug" type="text" class="input-base" placeholder="quan-1" />
+            </div>
+          </div>
+          <button onclick="addDistrict()"
+            class="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-2.5 rounded-xl text-sm mb-5">
+            ➕ Thêm quận/huyện
+          </button>
+          <div id="districtManageArea" class="hidden">
+            <p id="districtProvinceLabel" class="text-sm font-semibold text-gray-700 mb-2"></p>
+            <div id="districtList" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== HÌNH THỨC VIỆC LÀM ==================== -->
+    <div id="section-worktypes" class="section">
+      <h1 class="text-2xl font-extrabold text-gray-800 mb-6">Quản lý hình thức việc làm</h1>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        <!-- Thêm mới -->
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <h2 class="font-bold text-gray-700 mb-4">➕ Thêm hình thức</h2>
+          <div class="space-y-3">
+            <div><label class="label-xs">Tên *</label>
+              <input id="wt_name" type="text" class="input-base" placeholder="Toàn thời gian" /></div>
+            <div><label class="label-xs">Slug *</label>
+              <input id="wt_slug" type="text" class="input-base" placeholder="full-time" /></div>
+            <div><label class="label-xs">Icon (emoji)</label>
+              <input id="wt_icon" type="text" class="input-base" placeholder="🕐" /></div>
+            <button onclick="addWorkType()"
+              class="w-full bg-blue-800 hover:bg-blue-900 text-white font-semibold py-2.5 rounded-xl transition-all text-sm">
+              Thêm hình thức
+            </button>
+          </div>
+        </div>
+
+        <!-- Danh sách -->
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <h2 class="font-bold text-gray-700 mb-4">Danh sách hình thức</h2>
+          <div id="worktypesList" class="space-y-2"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== XÁC MINH CV ==================== -->
+    <div id="section-verifications" class="section">
+      <h1 class="text-2xl font-extrabold text-gray-800 mb-2">Xác minh Học vấn & Kinh nghiệm</h1>
+      <p class="text-sm text-gray-500 mb-5">Duyệt các yêu cầu xác minh từ ứng viên</p>
+
+      <!-- Tab filter -->
+      <div class="flex gap-2 mb-5">
+        <button onclick="loadVerifications('all')" id="vt-all" class="px-4 py-2 rounded-xl text-sm font-medium bg-blue-800 text-white">Tất cả</button>
+        <button onclick="loadVerifications('education')" id="vt-edu" class="px-4 py-2 rounded-xl text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50">🎓 Học vấn</button>
+        <button onclick="loadVerifications('experience')" id="vt-exp" class="px-4 py-2 rounded-xl text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50">💼 Kinh nghiệm</button>
+      </div>
+
+      <div id="verificationsList" class="space-y-3"></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- REJECT MODAL -->
+<div id="rejectModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+    <h2 class="font-bold text-gray-800 mb-3">Lý do từ chối</h2>
+    <textarea id="rejectReason" rows="3" class="input-base resize-none mb-4"
+      placeholder="VD: Tiêu đề không rõ ràng, thiếu mô tả..."></textarea>
+    <div class="flex gap-3">
+      <button onclick="closeRejectModal()" class="flex-1 border border-gray-200 text-gray-600 font-medium py-2.5 rounded-xl text-sm">Hủy</button>
+      <button onclick="confirmReject()" class="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-2.5 rounded-xl text-sm">Từ chối</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API   = 'http://localhost:5000/api';
+  const token = localStorage.getItem('lc_token');
+  let rejectingJobId = null;
+
+  function authHeader() { return { 'Content-Type':'application/json', 'Authorization':`Bearer ${token}` }; }
+  function logout() { localStorage.clear(); window.location.href = 'login.html'; }
+
+  function showAlert(msg, type = 'success') {
+    const box = document.getElementById('globalAlert');
+    box.className = `mb-5 px-4 py-3 rounded-xl text-sm font-medium ${type==='success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`;
+    box.textContent = msg;
+    box.classList.remove('hidden');
+    setTimeout(() => box.classList.add('hidden'), 4000);
+  }
+
+  function switchSection(name) {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.sidebar-link').forEach(b => b.classList.remove('active'));
+    document.getElementById(`section-${name}`).classList.add('active');
+    document.getElementById(`nav-${name}`).classList.add('active');
+
+    if (name === 'jobs')          loadAdminJobs();
+    if (name === 'users')         loadAdminUsers();
+    if (name === 'locations')     loadAdminLocations();
+    if (name === 'worktypes')     loadAdminWorkTypes();
+    if (name === 'verifications') loadVerifications('all');
+  }
+
+  // ==========================================
+  // DASHBOARD
+  // ==========================================
+  async function loadDashboard() {
+    try {
+      const r = await fetch(`${API}/admin/stats`, { headers: authHeader() });
+      const d = await r.json();
+      if (!d.success) return;
+      const s = d.stats;
+      document.getElementById('ds_totalUsers').textContent  = s.users.total;
+      document.getElementById('ds_employers').textContent   = s.users.employers;
+      document.getElementById('ds_candidates').textContent  = s.users.candidates;
+      document.getElementById('ds_pendingJobs').textContent = s.jobs.pending;
+      document.getElementById('ds_pendingAlert').textContent = s.jobs.pending;
+    } catch (e) {}
+  }
+
+  // ==========================================
+  // DUYỆT TIN
+  // ==========================================
+  async function loadAdminJobs() {
+    const status = document.getElementById('jobStatusFilter').value;
+    try {
+      const r = await fetch(`${API}/admin/jobs?status=${status}&limit=50`, { headers: authHeader() });
+      const d = await r.json();
+      renderAdminJobs(d.jobs || []);
+    } catch (e) {}
+  }
+
+  const STATUS_BADGE = { pending:'bg-yellow-100 text-yellow-700', approved:'bg-green-100 text-green-700', rejected:'bg-red-100 text-red-700' };
+  const STATUS_LABEL = { pending:'Chờ duyệt', approved:'Đã duyệt', rejected:'Từ chối', expired:'Hết hạn' };
+
+  function renderAdminJobs(jobs) {
+    const container = document.getElementById('adminJobsList');
+    if (!jobs.length) { container.innerHTML = '<p class="text-gray-400 text-sm text-center py-8">Không có tin nào</p>'; return; }
+
+    container.innerHTML = jobs.map(job => `
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+        <div class="flex items-start justify-between gap-4">
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2 flex-wrap">
+              <p class="font-bold text-gray-800">${job.title}</p>
+              <span class="status-badge ${STATUS_BADGE[job.status]||''}">${STATUS_LABEL[job.status]||job.status}</span>
+              ${job.isHighlight ? '<span class="status-badge bg-orange-100 text-orange-600">⭐ Nổi bật</span>' : ''}
+            </div>
+            <p class="text-sm text-gray-500 mt-0.5">
+              🏢 ${job.employer?.employerProfile?.companyName || job.employer?.email || '—'}
+              &nbsp;·&nbsp; 📍 ${job.province?.name || '—'}
+              &nbsp;·&nbsp; 📅 ${new Date(job.createdAt).toLocaleDateString('vi-VN')}
+            </p>
+            ${job.adminNote ? `<p class="text-xs text-red-500 mt-1">⚠️ ${job.adminNote}</p>` : ''}
+          </div>
+          <div class="flex flex-wrap gap-2 flex-shrink-0">
+            <a href="job-detail.html?id=${job._id}" target="_blank"
+              class="text-xs border border-gray-200 text-gray-600 px-2.5 py-1.5 rounded-lg hover:bg-gray-50">Xem</a>
+            ${job.status !== 'approved' ? `
+              <button onclick="approveJob('${job._id}')"
+                class="text-xs bg-green-600 hover:bg-green-700 text-white px-2.5 py-1.5 rounded-lg">✅ Duyệt</button>` : ''}
+            ${job.status !== 'rejected' ? `
+              <button onclick="openRejectModal('${job._id}')"
+                class="text-xs bg-red-500 hover:bg-red-600 text-white px-2.5 py-1.5 rounded-lg">❌ Từ chối</button>` : ''}
+            <button onclick="toggleHighlight('${job._id}', ${job.isHighlight})"
+              class="text-xs border ${job.isHighlight ? 'border-orange-300 text-orange-600' : 'border-gray-200 text-gray-500'} px-2.5 py-1.5 rounded-lg hover:bg-orange-50">
+              ${job.isHighlight ? '⭐ Bỏ nổi bật' : '☆ Nổi bật'}
+            </button>
+          </div>
+        </div>
+      </div>`
+    ).join('');
+  }
+
+  async function approveJob(id) {
+    try {
+      const r = await fetch(`${API}/admin/jobs/${id}/approve`, { method:'PUT', headers: authHeader() });
+      const d = await r.json();
+      if (d.success) { showAlert('✅ Đã duyệt tin'); loadAdminJobs(); }
+      else showAlert(d.message, 'error');
+    } catch (e) {}
+  }
+
+  function openRejectModal(id) { rejectingJobId = id; document.getElementById('rejectModal').classList.remove('hidden'); }
+  function closeRejectModal()  { rejectingJobId = null; document.getElementById('rejectModal').classList.add('hidden'); }
+
+  async function confirmReject() {
+    const reason = document.getElementById('rejectReason').value.trim();
+    try {
+      const r = await fetch(`${API}/admin/jobs/${rejectingJobId}/reject`, {
+        method: 'PUT', headers: authHeader(), body: JSON.stringify({ reason })
+      });
+      const d = await r.json();
+      if (d.success) { showAlert('Đã từ chối tin'); closeRejectModal(); loadAdminJobs(); }
+      else showAlert(d.message, 'error');
+    } catch (e) {}
+  }
+
+  async function toggleHighlight(id) {
+    try {
+      const r = await fetch(`${API}/admin/jobs/${id}/highlight`, { method:'PUT', headers: authHeader() });
+      const d = await r.json();
+      if (d.success) { showAlert(d.message); loadAdminJobs(); }
+    } catch (e) {}
+  }
+
+  // ==========================================
+  // NGƯỜI DÙNG
+  // ==========================================
+  async function loadAdminUsers() {
+    const role = document.getElementById('userRoleFilter').value;
+    try {
+      const r = await fetch(`${API}/admin/users?role=${role}&limit=50`, { headers: authHeader() });
+      const d = await r.json();
+      renderUsersTable(d.users || []);
+    } catch (e) {}
+  }
+
+  function renderUsersTable(users) {
+    const ROLE = { candidate:'👤 Ứng viên', employer:'🏢 Employer', admin:'⚙️ Admin' };
+    document.getElementById('usersTable').innerHTML = users.map(u => `
+      <tr class="border-t border-gray-50 hover:bg-gray-50">
+        <td class="px-4 py-3 text-sm">${u.email}</td>
+        <td class="px-4 py-3 text-sm">${u.candidateProfile?.fullName || u.employerProfile?.companyName || '—'}</td>
+        <td class="px-4 py-3"><span class="text-xs">${ROLE[u.role]||u.role}</span></td>
+        <td class="px-4 py-3">
+          <span class="status-badge ${u.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+            ${u.isActive ? 'Hoạt động' : 'Đã khóa'}
+          </span>
+        </td>
+        <td class="px-4 py-3 text-xs text-gray-500">${new Date(u.createdAt).toLocaleDateString('vi-VN')}</td>
+        <td class="px-4 py-3 text-center">
+          ${u.role !== 'admin' ? `
+            <button onclick="toggleUserActive('${u._id}')"
+              class="text-xs border ${u.isActive ? 'border-red-200 text-red-500 hover:bg-red-50' : 'border-green-200 text-green-600 hover:bg-green-50'} px-2.5 py-1 rounded-lg">
+              ${u.isActive ? '🔒 Khóa' : '🔓 Mở'}
+            </button>` : '<span class="text-xs text-gray-400">—</span>'}
+        </td>
+      </tr>`
+    ).join('');
+  }
+
+  async function toggleUserActive(id) {
+    try {
+      const r = await fetch(`${API}/admin/users/${id}/toggle-active`, { method:'PUT', headers: authHeader() });
+      const d = await r.json();
+      if (d.success) { showAlert(d.message); loadAdminUsers(); }
+      else showAlert(d.message, 'error');
+    } catch (e) {}
+  }
+
+  // ==========================================
+  // ĐỊA CHÍNH
+  // ==========================================
+  async function loadAdminLocations() {
+    try {
+      const r = await fetch(`${API}/locations`);
+      const d = await r.json();
+      const locs = d.locations || [];
+      document.getElementById('locationsList').innerHTML = locs.map(l =>
+        `<div class="flex items-center justify-between text-sm p-2.5 rounded-xl hover:bg-gray-50 cursor-pointer"
+              onclick="selectProvinceForDistrict('${l._id}', '${l.name}')">
+          <div>
+            <span class="font-medium">${l.name}</span>
+            <span class="text-gray-400 text-xs ml-2">(${l.districts?.length||0} quận/huyện)</span>
+          </div>
+          <span class="text-xs text-blue-600 hover:underline">Quản lý →</span>
+        </div>`
+      ).join('');
+
+      // Populate district province select
+      const sel = document.getElementById('dist_provinceSelect');
+      const cur = sel.value;
+      sel.innerHTML = '<option value="">-- Chọn tỉnh/thành --</option>';
+      locs.forEach(l => sel.innerHTML += `<option value="${l._id}">${l.name}</option>`);
+      if (cur) sel.value = cur;
+    } catch (e) {}
+  }
+
+  function selectProvinceForDistrict(id, name) {
+    document.getElementById('dist_provinceSelect').value = id;
+    loadDistrictManage(id, name);
+  }
+
+  async function loadDistrictManage(provinceId, provinceName) {
+    if (!provinceId) {
+      document.getElementById('districtManageArea').classList.add('hidden');
+      return;
+    }
+    try {
+      const r = await fetch(`${API}/locations/${provinceId}/districts/manage`, { headers: authHeader() });
+      const d = await r.json();
+      const label = provinceName || d.province || 'Tỉnh/Thành';
+      document.getElementById('districtProvinceLabel').textContent = `Quận/Huyện thuộc: ${label} (${(d.districts||[]).length} mục)`;
+      document.getElementById('districtManageArea').classList.remove('hidden');
+
+      const container = document.getElementById('districtList');
+      if (!d.districts?.length) {
+        container.innerHTML = '<p class="col-span-4 text-gray-400 text-xs">Chưa có quận/huyện nào</p>';
+        return;
+      }
+      container.innerHTML = (d.districts||[]).map(dist => `
+        <div class="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2 text-sm group">
+          <div>
+            <span class="${dist.isActive ? 'text-gray-700' : 'text-gray-400 line-through'} font-medium text-xs">${dist.name}</span>
+            <p class="text-gray-400 text-xs">${dist.slug}</p>
+          </div>
+          <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button onclick="toggleDistrictActive('${provinceId}','${dist._id}',${dist.isActive})"
+              class="text-xs px-1.5 py-1 rounded ${dist.isActive ? 'text-orange-500 hover:bg-orange-50' : 'text-green-600 hover:bg-green-50'}">
+              ${dist.isActive ? '🔒' : '🔓'}
+            </button>
+            <button onclick="deleteDistrict('${provinceId}','${dist._id}')"
+              class="text-xs px-1.5 py-1 rounded text-red-400 hover:bg-red-50">🗑</button>
+          </div>
+        </div>`).join('');
+    } catch (e) { console.error(e); }
+  }
+
+  async function addDistrict() {
+    const provinceId = document.getElementById('dist_provinceSelect').value;
+    const name       = document.getElementById('dist_name').value.trim();
+    const slug       = document.getElementById('dist_slug').value.trim();
+    if (!provinceId) { showAlert('Vui lòng chọn tỉnh/thành', 'error'); return; }
+    if (!name || !slug) { showAlert('Vui lòng nhập tên và slug quận/huyện', 'error'); return; }
+    try {
+      const r = await fetch(`${API}/locations/${provinceId}/districts`, {
+        method: 'POST', headers: authHeader(), body: JSON.stringify({ name, slug })
+      });
+      const d = await r.json();
+      if (d.success) {
+        showAlert(`✅ Đã thêm ${name}`);
+        document.getElementById('dist_name').value = '';
+        document.getElementById('dist_slug').value = '';
+        loadDistrictManage(provinceId);
+        loadAdminLocations();
+      } else showAlert(d.message, 'error');
+    } catch (e) { showAlert('Lỗi kết nối', 'error'); }
+  }
+
+  async function toggleDistrictActive(provinceId, districtId, currentActive) {
+    try {
+      const r = await fetch(`${API}/locations/${provinceId}/districts/${districtId}`, {
+        method: 'PUT', headers: authHeader(),
+        body: JSON.stringify({ isActive: !currentActive })
+      });
+      const d = await r.json();
+      if (d.success) { showAlert(d.message); loadDistrictManage(provinceId); }
+      else showAlert(d.message, 'error');
+    } catch (e) {}
+  }
+
+  async function deleteDistrict(provinceId, districtId) {
+    if (!confirm('Xóa quận/huyện này? Dữ liệu liên quan có thể bị ảnh hưởng.')) return;
+    try {
+      const r = await fetch(`${API}/locations/${provinceId}/districts/${districtId}`, {
+        method: 'DELETE', headers: authHeader()
+      });
+      const d = await r.json();
+      if (d.success) { showAlert('✅ Đã xóa quận/huyện'); loadDistrictManage(provinceId); loadAdminLocations(); }
+      else showAlert(d.message, 'error');
+    } catch (e) {}
+  }
+
+  async function addLocation() {
+    const body = {
+      name:   document.getElementById('loc_name').value.trim(),
+      slug:   document.getElementById('loc_slug').value.trim(),
+      type:   document.getElementById('loc_type').value,
+      region: document.getElementById('loc_region').value,
+    };
+    if (!body.name || !body.slug) { showAlert('Vui lòng điền đầy đủ thông tin', 'error'); return; }
+    try {
+      const r = await fetch(`${API}/locations`, { method:'POST', headers: authHeader(), body: JSON.stringify(body) });
+      const d = await r.json();
+      if (d.success) { showAlert('✅ Thêm thành công'); loadAdminLocations(); ['loc_name','loc_slug'].forEach(id => document.getElementById(id).value=''); }
+      else showAlert(d.message, 'error');
+    } catch (e) {}
+  }
+
+  // ==========================================
+  // HÌNH THỨC VIỆC LÀM
+  // ==========================================
+  async function loadAdminWorkTypes() {
+    try {
+      const r = await fetch(`${API}/worktypes`);
+      const d = await r.json();
+      document.getElementById('worktypesList').innerHTML = (d.workTypes||[]).map(wt =>
+        `<div class="flex items-center justify-between text-sm p-2.5 rounded-xl bg-gray-50">
+          <span>${wt.icon} ${wt.name} <span class="text-gray-400 text-xs ml-1">(${wt.slug})</span></span>
+          <button onclick="deleteWorkType('${wt._id}')"
+            class="text-xs text-red-400 hover:text-red-600 border border-red-100 px-2 py-1 rounded-lg hover:bg-red-50">Xóa</button>
+        </div>`
+      ).join('');
+    } catch (e) {}
+  }
+
+  async function addWorkType() {
+    const body = {
+      name: document.getElementById('wt_name').value.trim(),
+      slug: document.getElementById('wt_slug').value.trim(),
+      icon: document.getElementById('wt_icon').value.trim() || '💼',
+    };
+    if (!body.name || !body.slug) { showAlert('Vui lòng điền đầy đủ', 'error'); return; }
+    try {
+      const r = await fetch(`${API}/worktypes`, { method:'POST', headers: authHeader(), body: JSON.stringify(body) });
+      const d = await r.json();
+      if (d.success) { showAlert('✅ Thêm thành công'); loadAdminWorkTypes(); ['wt_name','wt_slug','wt_icon'].forEach(id => document.getElementById(id).value=''); }
+      else showAlert(d.message, 'error');
+    } catch (e) {}
+  }
+
+  async function deleteWorkType(id) {
+    if (!confirm('Xóa hình thức việc làm này? Các tin tuyển dụng dùng hình thức này sẽ bị ảnh hưởng.')) return;
+    try {
+      const r = await fetch(`${API}/worktypes/${id}`, { method:'DELETE', headers: authHeader() });
+      const d = await r.json();
+      if (d.success) { showAlert('✅ Đã xóa'); loadAdminWorkTypes(); }
+      else showAlert(d.message, 'error');
+    } catch (e) {}
+  }
+
+  // ==========================================
+  // XÁC MINH HỌC VẤN & KINH NGHIỆM
+  // ==========================================
+  let _verifyEmployers = []; // Cache danh sách employer cho dropdown
+
+  async function loadVerifications(type = 'all') {
+    // Update tab buttons
+    ['all','edu','exp'].forEach(t => {
+      const btn = document.getElementById(`vt-${t}`);
+      if (!btn) return;
+      const active = (t === 'edu' && type === 'education') || (t === 'exp' && type === 'experience') || (t === 'all' && type === 'all');
+      btn.className = active
+        ? 'px-4 py-2 rounded-xl text-sm font-medium bg-blue-800 text-white'
+        : 'px-4 py-2 rounded-xl text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50';
+    });
+
+    const container = document.getElementById('verificationsList');
+    container.innerHTML = '<div class="text-center py-8 text-gray-400">Đang tải...</div>';
+
+    try {
+      const r = await fetch(`${API}/admin/verifications/pending?type=${type}`, { headers: authHeader() });
+      const d = await r.json();
+      const items = d.items || [];
+
+      if (!items.length) {
+        container.innerHTML = '<div class="text-center text-gray-400 py-12"><div class="text-4xl mb-3">✅</div><p>Không có yêu cầu nào đang chờ duyệt</p></div>';
+        return;
+      }
+
+      // Load employers nếu chưa có
+      if (!_verifyEmployers.length) {
+        const re = await fetch(`${API}/admin/users?role=employer&limit=100`, { headers: authHeader() });
+        const de = await re.json();
+        _verifyEmployers = (de.users || []).map(u => ({ _id: u._id, name: u.employerProfile?.companyName || u.email }));
+      }
+
+      container.innerHTML = items.map(item => {
+        const isEdu = item.type === 'education';
+        const e     = item.item;
+        const vsColor = { unverified:'bg-gray-100 text-gray-500', pending:'bg-yellow-100 text-yellow-700', verified:'bg-green-100 text-green-700', rejected:'bg-red-100 text-red-700' };
+        const vs = e.verifyStatus?.replace('pending_admin','pending').replace('pending_employer','pending');
+
+        return `
+          <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5" id="vitem_${e._id}">
+            <div class="flex items-start justify-between gap-4 flex-wrap">
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 flex-wrap mb-1">
+                  <span class="text-xs font-bold ${isEdu ? 'text-green-700' : 'text-orange-700'} uppercase tracking-wide">${isEdu ? '🎓 Học vấn' : '💼 Kinh nghiệm'}</span>
+                  <span class="status-badge ${vsColor[vs] || 'bg-gray-100 text-gray-500'}">${e.verifyStatus}</span>
+                </div>
+                <p class="font-bold text-gray-800">${isEdu ? (e.school || '—') : (e.company || '—')}</p>
+                <p class="text-sm text-gray-600">${isEdu ? `${e.degree || ''} ${e.major ? '· ' + e.major : ''}` : (e.position || '—')}</p>
+                ${e.gpa ? `<p class="text-xs text-gray-500">GPA: ${e.gpa}</p>` : ''}
+                ${e.from ? `<p class="text-xs text-gray-400">${new Date(e.from).toLocaleDateString('vi-VN')} → ${e.to ? new Date(e.to).toLocaleDateString('vi-VN') : 'Hiện tại'}</p>` : ''}
+                <p class="text-xs text-blue-700 mt-1">👤 Ứng viên: <strong>${item.candidateName}</strong></p>
+                ${e.verifyNote ? `<p class="text-xs text-orange-600 mt-1">📝 Ghi chú: ${e.verifyNote}</p>` : ''}
+                ${(e.images||[]).length ? `<div class="flex gap-2 mt-2">${e.images.map(img=>`<img src="${img}" class="h-14 w-20 object-cover rounded-lg border border-gray-200 cursor-pointer" onclick="window.open('${img}')" />`).join('')}</div>` : ''}
+              </div>
+
+              <!-- Actions -->
+              <div class="flex flex-col gap-2 flex-shrink-0 min-w-40">
+                <button onclick="adminVerify('${item.type}','${item.candidateId}','${e._id}','verify')"
+                  class="text-xs bg-green-600 hover:bg-green-700 text-white font-medium px-3 py-2 rounded-xl">✅ Xác minh</button>
+                <button onclick="openRejectVerifyModal('${item.type}','${item.candidateId}','${e._id}')"
+                  class="text-xs bg-red-50 hover:bg-red-100 text-red-600 font-medium px-3 py-2 rounded-xl">❌ Từ chối</button>
+                ${!isEdu ? `
+                  <div class="mt-1">
+                    <label class="label-xs">Giao cho Employer</label>
+                    <select id="empSel_${e._id}" class="input-base text-xs bg-white mb-1">
+                      <option value="">-- Chọn Employer --</option>
+                      ${_verifyEmployers.map(emp=>`<option value="${emp._id}">${emp.name}</option>`).join('')}
+                    </select>
+                    <button onclick="assignEmployer('${item.candidateId}','${e._id}')"
+                      class="w-full text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium px-3 py-1.5 rounded-xl">📤 Giao xác minh</button>
+                  </div>` : ''}
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+    } catch (err) { container.innerHTML = `<p class="text-red-400 text-sm">❌ ${err.message}</p>`; }
+  }
+
+  async function adminVerify(type, candidateId, itemId, action, note = '') {
+    try {
+      const url = `${API}/admin/verifications/${type}/${candidateId}/${itemId}`;
+      const body = type === 'education' ? { status: action === 'verify' ? 'verified' : 'rejected', note }
+                                        : { action: action === 'verify' ? 'verify' : 'reject', note };
+      const r = await fetch(url, { method: 'PUT', headers: authHeader(), body: JSON.stringify(body) });
+      const d = await r.json();
+      if (d.success) { showAlert(d.message); loadVerifications('all'); }
+      else showAlert(d.message, 'error');
+    } catch (e) { showAlert('Lỗi kết nối', 'error'); }
+  }
+
+  async function assignEmployer(candidateId, expId) {
+    const sel = document.getElementById(`empSel_${expId}`);
+    const employerId = sel?.value;
+    if (!employerId) { showAlert('Vui lòng chọn Employer', 'error'); return; }
+    try {
+      const r = await fetch(`${API}/admin/verifications/experience/${candidateId}/${expId}`, {
+        method: 'PUT', headers: authHeader(),
+        body: JSON.stringify({ action: 'assign_employer', employerId })
+      });
+      const d = await r.json();
+      d.success ? (showAlert('✅ ' + d.message), loadVerifications('all')) : showAlert(d.message,'error');
+    } catch (e) { showAlert('Lỗi kết nối','error'); }
+  }
+
+  // Reject modal
+  let _rejectVerifyCtx = null;
+  function openRejectVerifyModal(type, candidateId, itemId) {
+    _rejectVerifyCtx = { type, candidateId, itemId };
+    document.getElementById('rejectVerifyNote').value = '';
+    document.getElementById('rejectVerifyModal').classList.remove('hidden');
+  }
+  function closeRejectVerifyModal() { document.getElementById('rejectVerifyModal').classList.add('hidden'); _rejectVerifyCtx = null; }
+  async function confirmRejectVerify() {
+    if (!_rejectVerifyCtx) return;
+    const note = document.getElementById('rejectVerifyNote').value.trim();
+    await adminVerify(_rejectVerifyCtx.type, _rejectVerifyCtx.candidateId, _rejectVerifyCtx.itemId, 'reject', note);
+    closeRejectVerifyModal();
+  }
+
+  // ==========================================
+  // THÊM EMPLOYER MỚI (Admin)
+  // ==========================================
+  async function adminAddEmployer() {
+    const email       = document.getElementById('newEmpEmail').value.trim();
+    const password    = document.getElementById('newEmpPassword').value;
+    const companyName = document.getElementById('newEmpCompany').value.trim();
+    if (!email || !password || !companyName) { showAlert('Vui lòng điền đầy đủ thông tin', 'error'); return; }
+
+    try {
+      const r = await fetch(`${API}/auth/register`, {
+        method: 'POST', headers: authHeader(),
+        body: JSON.stringify({ email, password, role: 'employer', companyName })
+      });
+      const d = await r.json();
+      if (d.success) {
+        showAlert(`✅ Đã tạo tài khoản Employer: ${email}`);
+        document.getElementById('newEmpEmail').value = '';
+        document.getElementById('newEmpPassword').value = '';
+        document.getElementById('newEmpCompany').value = '';
+        document.getElementById('addEmployerForm').classList.add('hidden');
+        loadAdminUsers();
+      } else showAlert(d.message, 'error');
+    } catch (e) { showAlert('Lỗi kết nối','error'); }
+  }
+
+  // Init
+  loadDashboard();
+</script>
+<!-- REJECT VERIFY MODAL -->
+<div id="rejectVerifyModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+    <h2 class="font-bold text-gray-800 mb-3">Lý do từ chối xác minh</h2>
+    <textarea id="rejectVerifyNote" rows="3" class="input-base resize-none mb-4" placeholder="Nhập lý do..."></textarea>
+    <div class="flex gap-3">
+      <button onclick="closeRejectVerifyModal()" class="flex-1 border border-gray-200 text-gray-600 font-medium py-2.5 rounded-xl text-sm">Hủy</button>
+      <button onclick="confirmRejectVerify()" class="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-2.5 rounded-xl text-sm">Từ chối</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
