@@ -112,7 +112,7 @@ Hệ thống cung cấp đầy đủ các chức năng trong quy trình tuyển 
 labor-connect/
 │
 ├── server/                             # Backend Node.js + Express
-│   ├── index.js                        # Entry point: khởi động server, kết nối MongoDB, seed data
+│   ├── index.js                        # Entry point: khởi động server, kết nối MongoDB
 │   ├── package.json                    # Dependencies & scripts
 │   ├── .env                            # Biến môi trường (không commit lên Git)
 │   │
@@ -240,18 +240,6 @@ http-server -p 3000
 ```
 
 Mở trình duyệt: **`http://localhost:3000`**
-
----
-
-## 🔑 Tài khoản mặc định (Seed Data)
-
-Khi lần đầu khởi động server, hệ thống tự động tạo 3 tài khoản mẫu:
-
-| Vai trò | Email | Mật khẩu |
-|---|---|---|
-| 👑 Quản trị viên | `admin@laborconnect.vn` | `Admin@123` |
-| 👤 Ứng viên | `candidate@laborconnect.vn` | `User@123` |
-| 🏢 Nhà tuyển dụng | `hr@laborconnect.vn` | `Hr@123` |
 
 ---
 
