@@ -382,6 +382,7 @@ employerProfile → thông tin công ty, logo, gallery, video
 
 education[] và experience[] có thêm trường verifyStatus để theo dõi xác minh
 ```
+---
 
 ### 🔗 Nguyên tắc đồng nhất dữ liệu location và worktype
 
