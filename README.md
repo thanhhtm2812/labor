@@ -418,6 +418,7 @@ Employer đăng tin → status: "pending"
 Admin xem xét → [Duyệt] status: "approved" → Hiện trên trang chủ
               → [Từ chối] status: "rejected" + adminNote → Employer nhận thông báo
 ```
+---
 
 ### Luồng ứng tuyển
 ```
@@ -428,6 +429,7 @@ Candidate xem tin → Nộp đơn → Application: status "pending"
                     Employer quyết định → "accepted" (Mời phỏng vấn)
                                         → "rejected"
 ```
+---
 
 ### Luồng lời mời ứng tuyển
 ```
@@ -436,6 +438,7 @@ Employer tìm ứng viên → Gửi lời mời (Invitation: "pending")
 Candidate nhận lời mời → Chấp nhận → Invitation: "accepted"
                         → Từ chối  → Invitation: "rejected"
 ```
+---
 
 ### Luồng xác minh kinh nghiệm
 ```
