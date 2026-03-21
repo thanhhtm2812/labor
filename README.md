@@ -78,7 +78,7 @@ Hệ thống cung cấp đầy đủ các chức năng trong quy trình tuyển 
 |---|---|---|
 | Node.js | ≥ 16.x | Môi trường chạy JavaScript phía server |
 | Express.js | 4.18.2 | Web framework, xây dựng REST API |
-| MongoDB | Atlas / Local | Cơ sở dữ liệu NoSQL lưu trữ toàn bộ dữ liệu |
+| MongoDB | Atlas | Cơ sở dữ liệu NoSQL lưu trữ toàn bộ dữ liệu |
 | Mongoose | 8.0.3 | ODM (Object Data Modeling) cho MongoDB |
 | JSON Web Token (JWT) | 9.0.2 | Xác thực và phân quyền người dùng |
 | bcryptjs | 2.4.3 | Mã hóa mật khẩu (hash + salt) |
@@ -98,7 +98,7 @@ Hệ thống cung cấp đầy đủ các chức năng trong quy trình tuyển 
 | Vanilla JavaScript (ES6+) | Xử lý logic UI, gọi API qua `fetch()` |
 | LocalStorage | Lưu JWT token phía client |
 
-### Dịch vụ ngoài
+### Bên thứ 3
 | Dịch vụ | Mục đích |
 |---|---|
 | MongoDB Atlas | Cloud database |
