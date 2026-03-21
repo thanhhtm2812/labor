@@ -107,6 +107,16 @@ router.put('/:id', protect, authorize('employer'), async (req, res) => {
 router.delete('/:id', protect, authorize('employer', 'admin'), async (req, res) => {
   try {
     const query = req.user.role === 'admin' ? { _id: req.params.id } : { _id: req.params.id, employer: req.user._id };
+    
+    // Nếu là employer, kiểm tra trạng thái tin trước khi xóa
+    if (req.user.role === 'employer') {
+      const jobCheck = await Job.findOne(query);
+      if (!jobCheck) return res.status(404).json({ success: false, message: 'Không tìm thấy tin' });
+      if (jobCheck.status !== 'rejected') {
+        return res.status(403).json({ success: false, message: 'Bạn chỉ được xóa tin khi tin bị từ chối' });
+      }
+    }
+
     const job   = await Job.findOneAndDelete(query);
     if (!job) return res.status(404).json({ success: false, message: 'Không tìm thấy tin' });
     res.json({ success: true, message: 'Xóa tin tuyển dụng thành công' });

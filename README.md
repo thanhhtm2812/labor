@@ -1,38 +1,46 @@
-# 🚀 LaborConnect — Hệ thống kết nối cung cầu lao động
+# 🚀 LaborConnect — Nền tảng Tuyển dụng & Tìm việc làm
+
+Hệ thống kết nối Nhà tuyển dụng và Ứng viên, hỗ trợ đăng tin, nộp hồ sơ, tạo CV trực tuyến và quy trình xác minh kinh nghiệm làm việc.
 
 ## 📁 Cấu trúc dự án
 
 ```
 labor-connect/
-├── server/                          # Backend Node.js + Express
-│   ├── index.js                     # Entry point, kết nối MongoDB, seed data
-│   ├── package.json                 # Dependencies
-│   ├── .env.example                 # Mẫu biến môi trường
-│   ├── middleware/
-│   │   ├── auth.js                  # JWT protect, authorize, generateToken
-│   │   └── upload.js                # Multer + Cloudinary upload
-│   ├── models/
-│   │   ├── User.js                  # Ứng viên & Nhà tuyển dụng (logo, description HTML, videoUrl)
-│   │   ├── Location.js              # Danh mục địa chính DÙNG CHUNG (Tỉnh → Quận)
-│   │   ├── WorkType.js              # Danh mục hình thức việc làm DÙNG CHUNG
-│   │   ├── Job.js                   # Tin tuyển dụng (ref Location, WorkType)
-│   │   └── Application.js           # Đơn ứng tuyển
-│   └── routes/
-│       ├── auth.js                  # /register, /login, /me, /change-password
-│       ├── users.js                 # Upload logo, cập nhật profile
-│       ├── jobs.js                  # CRUD + lọc địa chính + workType
-│       ├── locations.js             # CRUD địa chính (Admin)
-│       ├── workTypes.js             # CRUD hình thức việc làm (Admin)
-│       └── admin.js                 # Duyệt tin, quản lý user, thống kê
-│
-└── client/                          # Frontend HTML + Tailwind CSS
-    ├── index.html                   # Trang chủ tìm kiếm & lọc việc làm
-    ├── login.html                   # Đăng nhập
-    ├── register.html                # Đăng ký (Ứng viên / Nhà tuyển dụng)
-    ├── job-detail.html              # Chi tiết tin tuyển dụng + ứng tuyển
-    ├── company-profile.html         # Hồ sơ công ty (Logo, Video YouTube, Gallery)
-    ├── dashboard-employer.html      # Dashboard nhà tuyển dụng
-    └── admin.html                   # Admin panel
+
++ server/                          # Backend Node.js + Express
+++ index.js                     # Entry point, kết nối MongoDB, seed data
+++ package.json                 # Dependencies
+++ .env                 # Biến môi trường
+
+++ middleware/
++++ auth.js                  # JWT protect, authorize, generateToken
++++ upload.js                # Multer + Cloudinary upload
+
+++ models/
++++ User.js                  # Ứng viên & Nhà tuyển dụng (logo, description HTML, videoUrl)
++++ Location.js              # Danh mục địa chính DÙNG CHUNG (Tỉnh → Quận)
++++ WorkType.js              # Danh mục hình thức việc làm DÙNG CHUNG
++++ Job.js                   # Tin tuyển dụng (ref Location, WorkType)
++++ Application.js           # Đơn ứng tuyển
++ Invitation.js            # Model: Lời mời ứng tuyển (Employer → Candidate)
+
+++ routes/
++++ auth.js                  # /register, /login, /me, /change-password
++++ users.js                 # Upload logo, cập nhật profile
++++ jobs.js                  # CRUD + lọc địa chính + workType
++++ locations.js             # CRUD địa chính (Admin)
++++ workTypes.js             # CRUD hình thức việc làm (Admin)
++++ admin.js                 # Duyệt tin, quản lý user, thống kê
+
++ client/                          # Frontend HTML + Tailwind CSS
+++ index.html                   # Trang chủ tìm kiếm & lọc việc làm
+++ login.html                   # Đăng nhập
+++ register.html                # Đăng ký (Ứng viên / Nhà tuyển dụng)
+++ job-detail.html              # Chi tiết tin tuyển dụng + ứng tuyển
+++ company-profile.html         # Hồ sơ công ty (Logo, Video YouTube, Gallery)
+++ dashboard-employer.html      # Dashboard nhà tuyển dụng
+++ admin.html                   # Admin panel
+++ dashboard-candidate.html      # Dashboard cho Ứng viên (Quản lý CV, Việc đã ứng tuyển)
 ```
 
 ---
@@ -47,7 +55,7 @@ labor-connect/
 ### Bước 1: Cài dependencies
 
 ```bash
-cd labor-connect/server
+cd server
 npm install
 ```
 
@@ -79,6 +87,7 @@ CLIENT_URL=http://localhost:3000
 
 ```bash
 # Development (tự reload)
+http-server -p 3000
 npm run dev
 
 # Production
@@ -102,8 +111,11 @@ Dùng **Live Server** (VS Code extension) hoặc bất kỳ HTTP server:
 npm install -g http-server
 
 # Chạy từ thư mục client
+
 cd labor-connect/client
+
 http-server -p 3000
+npm run dev
 ```
 
 Mở trình duyệt: `http://localhost:3000`

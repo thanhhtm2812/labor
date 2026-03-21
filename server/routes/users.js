@@ -3,6 +3,7 @@ const router     = express.Router();
 const adminVerifyRouter = express.Router();
 const User       = require('../models/User');
 const Application = require('../models/Application');
+const Invitation  = require('../models/Invitation'); // Import Invitation Model
 const { protect, authorize } = require('../middleware/auth');
 const { uploadImage, uploadToCloudinary } = require('../middleware/upload');
 
@@ -83,6 +84,52 @@ router.put('/employer/applications/:appId/status', protect, authorize('employer'
     const updated = await Application.findByIdAndUpdate(req.params.appId, update, { new: true })
       .populate('candidate', 'email candidateProfile.fullName');
     res.json({ success: true, message: 'Cập nhật trạng thái thành công', application: updated });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
+// POST /api/employer/invite — Gửi lời mời ứng tuyển
+router.post('/employer/invite', protect, authorize('employer'), async (req, res) => {
+  try {
+    const { candidateId, jobId, message } = req.body;
+    const Job = require('../models/Job');
+
+    // 1. Kiểm tra Job có thuộc về Employer này không
+    const job = await Job.findOne({ _id: jobId, employer: req.user._id });
+    if (!job) return res.status(403).json({ success: false, message: 'Tin tuyển dụng không hợp lệ' });
+
+    // 2. Kiểm tra Candidate tồn tại
+    const candidate = await User.findOne({ _id: candidateId, role: 'candidate' });
+    if (!candidate) return res.status(404).json({ success: false, message: 'Ứng viên không tồn tại' });
+
+    // 3. Kiểm tra xem đã mời chưa (hoặc đã ứng tuyển chưa - tùy logic, ở đây check duplicate invite)
+    const existingInvite = await Invitation.findOne({ job: jobId, candidate: candidateId });
+    if (existingInvite) return res.status(409).json({ success: false, message: 'Bạn đã gửi lời mời cho ứng viên này vào tin này rồi' });
+
+    // 4. Kiểm tra xem ứng viên đã nộp đơn chưa
+    const existingApp = await Application.findOne({ job: jobId, candidate: candidateId });
+    if (existingApp) return res.status(409).json({ success: false, message: 'Ứng viên này đã nộp hồ sơ vào tin này rồi' });
+
+    const invitation = await Invitation.create({
+      employer: req.user._id,
+      candidate: candidateId,
+      job: jobId,
+      message
+    });
+
+    res.json({ success: true, message: 'Đã gửi lời mời thành công', invitation });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// GET /api/employer/invitations — Xem lịch sử lời mời đã gửi
+router.get('/employer/invitations', protect, authorize('employer'), async (req, res) => {
+  try {
+    const invites = await Invitation.find({ employer: req.user._id })
+      .populate('candidate', 'email candidateProfile.fullName candidateProfile.avatar candidateProfile.phone')
+      .populate('job', 'title status')
+      .sort('-createdAt');
+    res.json({ success: true, invitations: invites });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
@@ -482,6 +529,38 @@ router.get('/candidate/applications', protect, authorize('candidate'), async (re
       })
       .sort('-createdAt').skip(skip).limit(Number(limit));
     res.json({ success: true, total, applications: apps });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
+// GET /api/candidate/invitations — Xem danh sách lời mời
+router.get('/candidate/invitations', protect, authorize('candidate'), async (req, res) => {
+  try {
+    const invites = await Invitation.find({ candidate: req.user._id })
+      .populate({
+        path: 'job',
+        select: 'title salary province slug status',
+        populate: { path: 'province', select: 'name' }
+      })
+      .populate('employer', 'employerProfile.companyName employerProfile.logo')
+      .sort('-createdAt');
+    res.json({ success: true, invitations: invites });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
+router.put('/candidate/invitations/:id/respond', protect, authorize('candidate'), async (req, res) => {
+  try {
+    const { status, message } = req.body;
+    if (!['accepted', 'rejected'].includes(status)) {
+      return res.status(400).json({ success: false, message: 'Trạng thái không hợp lệ' });
+    }
+    // Push to history and remove old field
+    const update = {
+      status,
+      $push: { responseHistory: { status, message, respondedAt: new Date() } },
+      $unset: { candidateMessage: "" }
+    };
+    await Invitation.findOneAndUpdate({ _id: req.params.id, candidate: req.user._id }, update, { new: true });
+    res.json({ success: true, message: status === 'accepted' ? 'Đã chấp nhận lời mời' : 'Đã từ chối lời mời' });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 

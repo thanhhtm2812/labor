@@ -52,6 +52,7 @@
       <button onclick="switchSection('overview')"    class="sidebar-link active" id="nav-overview">📊 Tổng quan</button>
       <button onclick="switchSection('profile')"     class="sidebar-link" id="nav-profile">👤 Hồ sơ cá nhân</button>
       <button onclick="switchSection('cvs')"         class="sidebar-link" id="nav-cvs">📄 Quản lý CV</button>
+      <button onclick="switchSection('invitations')" class="sidebar-link" id="nav-invitations">💌 Lời mời việc làm</button>
       <button onclick="switchSection('applications')" class="sidebar-link" id="nav-applications">📬 Ứng tuyển của tôi</button>
       <button onclick="switchSection('saved-jobs')"  class="sidebar-link" id="nav-saved-jobs">🔖 Việc làm đã lưu</button>
       <button onclick="switchSection('followed')"    class="sidebar-link" id="nav-followed">❤️ Công ty theo dõi</button>
@@ -233,6 +234,12 @@
       <div id="applicationsList" class="space-y-3"></div>
     </div>
 
+    <!-- ========== LỜI MỜI VIỆC LÀM ========== -->
+    <div id="section-invitations" class="section">
+      <h1 class="text-2xl font-extrabold text-gray-800 mb-6">Lời mời việc làm</h1>
+      <div id="invitationsList" class="space-y-3"></div>
+    </div>
+
     <!-- ========== VIỆC LÀM ĐÃ LƯU ========== -->
     <div id="section-saved-jobs" class="section">
       <h1 class="text-2xl font-extrabold text-gray-800 mb-6">Việc làm đã lưu</h1>
@@ -270,6 +277,7 @@ function switchSection(name) {
   document.getElementById(`section-${name}`).classList.add('active');
   document.getElementById(`nav-${name}`).classList.add('active');
   if (name === 'applications') loadApplications();
+  if (name === 'invitations')  loadInvitations();
   if (name === 'saved-jobs')   loadSavedJobs();
   if (name === 'followed')     loadFollowed();
   if (name === 'cvs')          loadCVs();
@@ -459,40 +467,56 @@ function addSkillRow(data = {}) {
 // ---- EDUCATION ROWS ----
 function addEduRow(data = {}) {
   const i = eduCount++;
+  const isVerified = data.verifyStatus === 'verified';
   const vi = VERIFY_INFO[data.verifyStatus || 'unverified'];
+  const disabled = isVerified ? 'disabled' : '';
+
   const row = document.createElement('div');
   row.className = 'row-card'; row.id = `edu_${i}`;
+  if (data._id) row.dataset.id = data._id;
+  if (data.verifyStatus) row.dataset.status = data.verifyStatus;
+  if (data.verifyNote) row.dataset.note = data.verifyNote;
+
+  const deleteBtn = isVerified 
+    ? `<span class="ml-auto text-xs text-gray-500 font-medium flex items-center gap-1">🔒 Đã xác minh</span>`
+    : `<button type="button" onclick="document.getElementById('edu_${i}').remove()" class="ml-auto text-xs text-red-400 hover:text-red-600">✕ Xóa</button>`;
+  
+  const verifyBtn = (!isVerified && data._id && !['pending','verified'].includes(data.verifyStatus))
+    ? `<button type="button" onclick="requestVerifyEdu('${data._id}')" class="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-lg hover:bg-blue-100">📨 Gửi xác minh</button>`
+    : '';
+
   row.innerHTML = `
     <div class="flex items-center gap-2 mb-2">
       <span class="text-xs font-semibold text-green-700">Học vấn #${i+1}</span>
       ${data._id ? `<span class="status-badge ${vi.cls} text-xs">${vi.label}</span>` : ''}
-      ${data._id && !['pending','verified'].includes(data.verifyStatus) ? `<button type="button" onclick="requestVerifyEdu('${data._id}')" class="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-lg hover:bg-blue-100">📨 Gửi xác minh</button>` : ''}
-      <button type="button" onclick="document.getElementById('edu_${i}').remove()" class="ml-auto text-xs text-red-400 hover:text-red-600">✕ Xóa</button>
+      ${verifyBtn}
+      ${deleteBtn}
     </div>
     <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
       <div class="md:col-span-2"><label class="label-xs">Trường *</label>
-        <input type="text" placeholder="Đại học Bách Khoa" value="${data.school||''}" class="input-base text-xs" data-edu="school" /></div>
+        <input type="text" placeholder="Đại học Bách Khoa" value="${data.school||''}" class="input-base text-xs" data-edu="school" ${disabled} /></div>
       <div><label class="label-xs">Bằng cấp</label>
-        <input type="text" placeholder="Cử nhân" value="${data.degree||''}" class="input-base text-xs" data-edu="degree" /></div>
+        <input type="text" placeholder="Cử nhân" value="${data.degree||''}" class="input-base text-xs" data-edu="degree" ${disabled} /></div>
       <div><label class="label-xs">Chuyên ngành</label>
-        <input type="text" placeholder="CNTT" value="${data.major||''}" class="input-base text-xs" data-edu="major" /></div>
+        <input type="text" placeholder="CNTT" value="${data.major||''}" class="input-base text-xs" data-edu="major" ${disabled} /></div>
       <div><label class="label-xs">GPA (thang 4)</label>
-        <input type="number" step="0.01" min="0" max="4" placeholder="3.5" value="${data.gpa||''}" class="input-base text-xs" data-edu="gpa" /></div>
+        <input type="number" step="0.01" min="0" max="4" placeholder="3.5" value="${data.gpa||''}" class="input-base text-xs" data-edu="gpa" ${disabled} /></div>
       <div><label class="label-xs">Từ ngày</label>
-        <input type="date" value="${data.from?data.from.slice(0,10):''}" class="input-base text-xs" data-edu="from" /></div>
+        <input type="date" value="${data.from?data.from.slice(0,10):''}" class="input-base text-xs" data-edu="from" ${disabled} /></div>
       <div><label class="label-xs">Đến ngày</label>
-        <input type="date" value="${data.to?data.to.slice(0,10):''}" class="input-base text-xs" data-edu="to" /></div>
+        <input type="date" value="${data.to?data.to.slice(0,10):''}" class="input-base text-xs" data-edu="to" ${disabled} /></div>
       <div class="flex items-center gap-2 pt-4">
-        <input type="checkbox" ${data.isCurrent?'checked':''} class="rounded" data-edu="isCurrent" />
+        <input type="checkbox" ${data.isCurrent?'checked':''} class="rounded" data-edu="isCurrent" ${disabled} />
         <label class="text-xs text-gray-600">Đang học</label>
       </div>
       <div class="md:col-span-4"><label class="label-xs">Upload ảnh bằng cấp/transcript (tối đa 3 ảnh)</label>
-        <input type="file" accept="image/*" multiple class="input-base text-xs" data-edu="images" onchange="previewEduImages(this, ${i})" />
+        ${!isVerified ? `<input type="file" accept="image/*" multiple class="input-base text-xs" data-edu="images" onchange="previewEduImages(this, ${i})" />` : ''}
         <div id="eduImgPreview_${i}" class="flex gap-2 mt-2 flex-wrap">
           ${(data.images||[]).map(url=>`<img src="${url}" class="h-16 w-24 object-cover rounded-lg border border-gray-200" />`).join('')}
         </div>
       </div>
-    </div>`;
+    </div>
+    ${data.verifyStatus === 'rejected' && data.verifyNote ? `<div class="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded-lg"><strong>Lý do từ chối:</strong> ${data.verifyNote}</div>` : ''}`;
   document.getElementById('cv_eduRows').appendChild(row);
 }
 
@@ -517,32 +541,48 @@ function previewEduImages(input, rowIdx) {
 // ---- EXPERIENCE ROWS ----
 function addExpRow(data = {}) {
   const i = expCount++;
+  const isVerified = data.verifyStatus === 'verified';
   const vi = VERIFY_INFO[data.verifyStatus || 'unverified'];
+  const disabled = isVerified ? 'disabled' : '';
+
   const row = document.createElement('div');
   row.className = 'row-card'; row.id = `exp_${i}`;
+  if (data._id) row.dataset.id = data._id;
+  if (data.verifyStatus) row.dataset.status = data.verifyStatus;
+  if (data.verifyNote) row.dataset.note = data.verifyNote;
+
+  const deleteBtn = isVerified 
+    ? `<span class="ml-auto text-xs text-gray-500 font-medium flex items-center gap-1">🔒 Đã xác minh</span>`
+    : `<button type="button" onclick="document.getElementById('exp_${i}').remove()" class="ml-auto text-xs text-red-400 hover:text-red-600">✕ Xóa</button>`;
+
+  const verifyBtn = (!isVerified && data._id && !['pending_admin','pending_employer','verified'].includes(data.verifyStatus))
+    ? `<button type="button" onclick="requestVerifyExp('${data._id}')" class="text-xs bg-orange-50 text-orange-700 px-2 py-1 rounded-lg hover:bg-orange-100">📨 Gửi xác minh</button>`
+    : '';
+
   row.innerHTML = `
     <div class="flex items-center gap-2 mb-2">
       <span class="text-xs font-semibold text-orange-700">Kinh nghiệm #${i+1}</span>
       ${data._id ? `<span class="status-badge ${vi.cls} text-xs">${vi.label}</span>` : ''}
-      ${data._id && !['pending_admin','pending_employer','verified'].includes(data.verifyStatus) ? `<button type="button" onclick="requestVerifyExp('${data._id}')" class="text-xs bg-orange-50 text-orange-700 px-2 py-1 rounded-lg hover:bg-orange-100">📨 Gửi xác minh</button>` : ''}
-      <button type="button" onclick="document.getElementById('exp_${i}').remove()" class="ml-auto text-xs text-red-400 hover:text-red-600">✕ Xóa</button>
+      ${verifyBtn}
+      ${deleteBtn}
     </div>
     <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
       <div><label class="label-xs">Công ty *</label>
-        <input type="text" placeholder="Công ty ABC" value="${data.company||''}" class="input-base text-xs" data-exp="company" /></div>
+        <input type="text" placeholder="Công ty ABC" value="${data.company||''}" class="input-base text-xs" data-exp="company" ${disabled} /></div>
       <div><label class="label-xs">Vị trí *</label>
-        <input type="text" placeholder="Frontend Developer" value="${data.position||''}" class="input-base text-xs" data-exp="position" /></div>
+        <input type="text" placeholder="Frontend Developer" value="${data.position||''}" class="input-base text-xs" data-exp="position" ${disabled} /></div>
       <div><label class="label-xs">Từ ngày</label>
-        <input type="date" value="${data.from?data.from.slice(0,10):''}" class="input-base text-xs" data-exp="from" /></div>
+        <input type="date" value="${data.from?data.from.slice(0,10):''}" class="input-base text-xs" data-exp="from" ${disabled} /></div>
       <div><label class="label-xs">Đến ngày</label>
-        <input type="date" value="${data.to?data.to.slice(0,10):''}" class="input-base text-xs" data-exp="to" /></div>
+        <input type="date" value="${data.to?data.to.slice(0,10):''}" class="input-base text-xs" data-exp="to" ${disabled} /></div>
       <div class="flex items-center gap-2 pt-4">
-        <input type="checkbox" ${data.isCurrent?'checked':''} class="rounded" data-exp="isCurrent" />
+        <input type="checkbox" ${data.isCurrent?'checked':''} class="rounded" data-exp="isCurrent" ${disabled} />
         <label class="text-xs text-gray-600">Đang làm</label>
       </div>
       <div class="md:col-span-3"><label class="label-xs">Mô tả công việc</label>
-        <textarea class="input-base text-xs resize-none" rows="2" placeholder="Mô tả..." data-exp="description">${data.description||''}</textarea></div>
-    </div>`;
+        <textarea class="input-base text-xs resize-none" rows="2" placeholder="Mô tả..." data-exp="description" ${disabled}>${data.description||''}</textarea></div>
+    </div>
+    ${data.verifyStatus === 'rejected' && data.verifyNote ? `<div class="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded-lg"><strong>Lý do từ chối:</strong> ${data.verifyNote}</div>` : ''}`;
   document.getElementById('cv_expRows').appendChild(row);
 }
 
@@ -559,6 +599,9 @@ function collectSkills() {
 
 function collectEducation() {
   return Array.from(document.querySelectorAll('#cv_eduRows .row-card')).map(row => ({
+    _id:       row.dataset.id || undefined,
+    verifyStatus: row.dataset.status || undefined,
+    verifyNote: row.dataset.note || undefined,
     school:    row.querySelector('[data-edu="school"]')?.value.trim()  || '',
     degree:    row.querySelector('[data-edu="degree"]')?.value.trim()  || '',
     major:     row.querySelector('[data-edu="major"]')?.value.trim()   || '',
@@ -572,6 +615,9 @@ function collectEducation() {
 
 function collectExperience() {
   return Array.from(document.querySelectorAll('#cv_expRows .row-card')).map(row => ({
+    _id:         row.dataset.id || undefined,
+    verifyStatus: row.dataset.status || undefined,
+    verifyNote:   row.dataset.note || undefined,
     company:     row.querySelector('[data-exp="company"]')?.value.trim()     || '',
     position:    row.querySelector('[data-exp="position"]')?.value.trim()    || '',
     description: row.querySelector('[data-exp="description"]')?.value.trim() || '',
@@ -774,7 +820,154 @@ async function unfollow(empId, btn) {
   d.success ? (showAlert('✅ Đã bỏ theo dõi'), loadFollowed()) : showAlert(d.message,'error');
 }
 
+// ==================== INVITATIONS ====================
+async function loadInvitations() {
+  const container = document.getElementById('invitationsList');
+  container.innerHTML = '<div class="text-center py-8"><div class="animate-spin rounded-full h-8 w-8 border-2 border-blue-200 border-t-blue-700 mx-auto"></div></div>';
+  try {
+    const r = await fetch(`${API}/candidate/invitations`, { headers: authH() });
+    const d = await r.json();
+    const list = d.invitations || [];
+    
+    if (!list.length) { 
+      container.innerHTML = '<div class="text-center text-gray-400 py-12"><div class="text-5xl mb-3">💌</div><p>Chưa có lời mời nào</p></div>'; 
+      return; 
+    }
+    
+    container.innerHTML = list.map(inv => {
+      const job = inv.job || {};
+      const emp = inv.employer || {};
+      const logo = emp.employerProfile?.logo || 'https://via.placeholder.com/48?text=Co';
+      const isRejected = inv.status === 'rejected';
+      const isAccepted = inv.status === 'accepted';
+
+      return `<div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 ${isRejected ? 'opacity-60 bg-gray-50' : ''}">
+        <div class="flex items-start gap-4">
+          <img src="${logo}" class="w-12 h-12 rounded-xl object-cover border border-gray-100 flex-shrink-0" />
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between">
+              <p class="text-xs text-blue-600 font-semibold uppercase mb-1">Lời mời từ ${emp.employerProfile?.companyName || 'Nhà tuyển dụng'}</p>
+              ${isAccepted ? `<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold">✅ Đã đồng ý</span>` : ''}
+              ${isRejected ? `<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold">❌ Đã từ chối</span>` : ''}
+            </div>
+            <h3 class="font-bold text-gray-800 text-lg">${job.title || 'Công việc không còn tồn tại'}</h3>
+            <p class="text-sm text-gray-600 mt-2 bg-blue-50 p-3 rounded-lg italic">"${inv.message || 'Không có lời nhắn'}"</p>
+            
+            ${(() => {
+              const history = (inv.responseHistory || []).sort((a, b) => new Date(a.respondedAt) - new Date(b.respondedAt));
+              if (history.length > 0) {
+                return `<details class="mt-3 border-t border-gray-100 pt-2 group">
+                  <summary class="text-xs text-blue-600 cursor-pointer hover:underline list-none group-open:mb-2 font-medium">
+                    <span class="group-open:hidden">▶ Xem lịch sử phản hồi</span>
+                    <span class="hidden group-open:inline">▼ Ẩn lịch sử</span>
+                  </summary>
+                  <div class="space-y-2 pl-2 border-l-2 border-gray-100">
+                  ${history.map((h, index) => {
+                    const isAccepted = h.status === 'accepted';
+                    const prevStatus = index > 0 ? history[index - 1].status : 'pending';
+                    const actionLabel = isAccepted ? (prevStatus === 'rejected' ? 'Mở lại' : 'Đồng ý') : 'Từ chối';
+                    const actionColor = isAccepted ? 'green' : 'red';
+                    const timeStr = h.respondedAt ? new Date(h.respondedAt).toLocaleDateString('vi-VN') : '—';
+                    return `<div class="flex items-start gap-2 text-xs">
+                        <span class="font-bold text-${actionColor}-600 w-16 text-right flex-shrink-0">${actionLabel}</span>
+                        <div class="flex-1 bg-gray-50 p-2 rounded-md"><p class="italic text-gray-600">"${h.message}"</p><p class="text-right text-gray-400 mt-1">${timeStr}</p></div>
+                      </div>`;
+                  }).join('')}
+                  </div>
+                </details>`;
+              } else if (inv.candidateMessage) { // Fallback for old data
+                return `<p class="text-xs text-gray-500 mt-2 ml-1">💬 Bạn trả lời: "<em>${inv.candidateMessage}</em>"</p>`;
+              } return '';
+            })()}
+            <p class="text-xs text-gray-400 mt-3">Nhận ngày: ${new Date(inv.createdAt).toLocaleDateString('vi-VN')}</p>
+          </div>
+          <div class="flex flex-col gap-2 flex-shrink-0">
+            ${job._id ? `<a href="job-detail.html?id=${job._id}" target="_blank" class="text-xs border border-blue-200 text-blue-600 font-semibold px-4 py-2 rounded-xl text-center hover:bg-blue-50">Xem tin</a>` : ''}
+            
+            ${!isAccepted ? `<button onclick="openResponseModal('${inv._id}', 'accepted', ${isRejected})" class="text-xs bg-green-600 hover:bg-green-700 text-white font-bold px-4 py-2 rounded-xl shadow-sm transition-all">${isRejected ? '🔄 Mở lại' : '✅ Đồng ý'}</button>` : ''}
+            
+            ${!isRejected ? `<button onclick="openResponseModal('${inv._id}', 'rejected')" class="text-xs border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 px-4 py-2 rounded-xl transition-all">Từ chối</button>` : ''}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) { container.innerHTML = `<p class="text-red-400">Lỗi: ${e.message}</p>`; }
+}
+
+let _respInvId = null;
+let _respAction = null;
+
+function openResponseModal(id, action, isReopen = false) {
+  _respInvId = id;
+  _respAction = action; // 'accepted' or 'rejected'
+  
+  const title = document.getElementById('respModalTitle');
+  const desc  = document.getElementById('respModalDesc');
+  const placeholder = document.getElementById('respMessage');
+  const btn   = document.getElementById('respConfirmBtn');
+
+  if (action === 'accepted') {
+    title.textContent = isReopen ? 'Mở lại lời mời' : 'Chấp nhận lời mời';
+    title.className = 'text-lg font-bold text-green-700';
+    desc.textContent = isReopen ? 'Gửi lời nhắn cho nhà tuyển dụng về việc bạn thay đổi quyết định.' : 'Gửi lời nhắn đến nhà tuyển dụng để thể hiện sự quan tâm của bạn.';
+    placeholder.placeholder = 'VD: Cảm ơn quý công ty, tôi rất quan tâm đến vị trí này...';
+    btn.className = 'flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 rounded-xl text-sm';
+    btn.textContent = 'Gửi đồng ý';
+  } else {
+    title.textContent = 'Từ chối lời mời';
+    title.className = 'text-lg font-bold text-red-600';
+    desc.textContent = 'Cho nhà tuyển dụng biết lý do bạn từ chối (bắt buộc).';
+    placeholder.placeholder = 'VD: Hiện tại tôi chưa có nhu cầu thay đổi công việc...';
+    btn.className = 'flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-2.5 rounded-xl text-sm';
+    btn.textContent = 'Xác nhận từ chối';
+  }
+
+  document.getElementById('respMessage').value = '';
+  document.getElementById('responseModal').classList.remove('hidden');
+}
+
+async function submitResponse() {
+  const message = document.getElementById('respMessage').value.trim();
+  if (!message) { alert('Vui lòng nhập lời nhắn'); return; }
+
+  const btn = document.getElementById('respConfirmBtn');
+  const originalText = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Đang gửi...';
+
+  const r = await fetch(`${API}/candidate/invitations/${_respInvId}/respond`, { 
+    method:'PUT', 
+    headers: authH(),
+    body: JSON.stringify({ status: _respAction, message })
+  });
+  const d = await r.json();
+  
+  btn.disabled = false; btn.textContent = originalText;
+
+  if(d.success) {
+    document.getElementById('responseModal').classList.add('hidden');
+    showAlert(d.message);
+    loadInvitations();
+  }
+  else showAlert(d.message, 'error');
+}
+
 init();
 </script>
+
+<!-- RESPONSE MODAL -->
+<div id="responseModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+    <h2 id="respModalTitle" class="text-lg font-bold text-gray-800 mb-1">Phản hồi lời mời</h2>
+    <p id="respModalDesc" class="text-xs text-gray-500 mb-4">Nhập tin nhắn phản hồi</p>
+    
+    <textarea id="respMessage" rows="4" class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none mb-4" placeholder="Nhập lời nhắn..."></textarea>
+    
+    <div class="flex gap-3">
+      <button onclick="document.getElementById('responseModal').classList.add('hidden')" class="flex-1 border border-gray-200 text-gray-600 font-medium py-2.5 rounded-xl text-sm hover:bg-gray-50">Hủy</button>
+      <button id="respConfirmBtn" onclick="submitResponse()" class="flex-1 bg-blue-800 hover:bg-blue-900 text-white font-semibold py-2.5 rounded-xl text-sm">Gửi</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
