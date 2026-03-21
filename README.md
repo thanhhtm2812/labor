@@ -383,7 +383,7 @@ employerProfile → thông tin công ty, logo, gallery, video
 education[] và experience[] có thêm trường verifyStatus để theo dõi xác minh
 ```
 
-### 🔗 Nguyên tắc đồng nhất dữ liệu (Data Consistency)
+### 🔗 Nguyên tắc đồng nhất dữ liệu location và worktype
 
 ```
 Location (Tỉnh / Quận)            WorkType (Hình thức việc làm)
@@ -394,65 +394,6 @@ Job.district (slug)             User.candidateProfile.district (slug)
 Job.workTypes[] ◄──────────► User.candidateProfile.desiredWorkTypes[]
 Cả **Nhà tuyển dụng** và **Ứng viên** đều chọn từ cùng một bộ danh mục `Location` và `WorkType` do Admin quản lý tập trung.
 ```
-
-### 📊 Chi tiết các Collection
-
-#### Collection `users`
-```javascript
-{
-  email: String,               // Unique, lowercase
-  password: String,            // bcrypt hash (select: false)
-  role: "candidate" | "employer" | "admin",
-  isActive: Boolean,
-  isVerified: Boolean,
-  candidateProfile: {
-    fullName, avatar, phone, dateOfBirth, gender, bio,
-    skills: [{ name, level, certificate, certUrl, projects[] }],
-    education: [{ school, degree, major, gpa, from, to, images[], verifyStatus }],
-    experience: [{ company, position, description, from, to, verifyStatus, assignedEmployer }],
-    province: ObjectId,        // ref: Location
-    district: String,          // slug
-    desiredWorkTypes: [ObjectId], // ref: WorkType
-    desiredSalary: { min, max, currency },
-    cvList: [CV]               // Danh sách CV trực tuyến
-  },
-  employerProfile: {
-    companyName, logo, description, videoUrl, phone, website,
-    industry, companySize, province, district, address,
-    galleryImages[], taxCode, founded
-  },
-  savedJobs: [ObjectId],
-  followedCompanies: [ObjectId]
-}
-```
-
-#### Collection `jobs`
-```javascript
-{
-  title: String,
-  slug: String,                // Auto-generated từ title
-  description: String,         // HTML rich text
-  requirements: String,        // HTML
-  benefits: String,            // HTML
-  employer: ObjectId,          // ref: User
-  category: String,
-  positions: Number,
-  experience: "no-experience" | "under-1-year" | "1-3-years" | ...,
-  education: "any" | "high-school" | "university" | ...,
-  salary: { min, max, currency, isNegotiate, period },
-  province: ObjectId,          // ref: Location
-  district: String,            // slug
-  address: String,
-  workTypes: [ObjectId],       // ref: WorkType
-  status: "pending" | "approved" | "rejected" | "expired" | "closed",
-  adminNote: String,
-  expiresAt: Date,
-  isHighlight: Boolean,
-  viewCount: Number,
-  applyCount: Number
-}
-```
-
 ---
 
 ## 🔒 Bảo mật
