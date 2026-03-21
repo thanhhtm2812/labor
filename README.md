@@ -362,17 +362,24 @@ POST /api/auth/login
 
 🔵 6 Collection chính (lưu trong MongoDB)
 users — Collection trung tâm, lưu tất cả người dùng gồm 3 vai trò: candidate, employer, admin. Một user sẽ có thêm candidateProfile hoặc employerProfile tùy vai trò.
+
 jobs — Tin tuyển dụng do employer đăng. Mỗi tin tham chiếu đến 1 employer (User), 1 tỉnh/thành (Location), và nhiều hình thức làm việc (WorkType).
+
 applications — Đơn ứng tuyển, là cầu nối giữa candidate và job. Mỗi đơn lưu trạng thái xử lý từ phía employer (pending → viewed → accepted/rejected).
+
 invitations — Lời mời ngược chiều: employer chủ động mời candidate. Lưu lịch sử phản hồi của ứng viên qua embedded array responseHistory[].
+
 locations — Danh mục địa chính do Admin quản lý. Mỗi tỉnh/thành nhúng luôn danh sách quận/huyện bên trong (districts[]).
+
 worktypes — Danh mục hình thức việc làm (Full-time, Part-time, Remote...) do Admin quản lý.
 
 🟢 Embedded Schemas (nhúng bên trong User)
 Những dữ liệu này được nhúng thẳng vào document User để tối ưu truy vấn:
 
 candidateProfile → thông tin cá nhân ứng viên, chứa tiếp skills[], education[], experience[], cvList[]
+
 employerProfile → thông tin công ty, logo, gallery, video
+
 education[] và experience[] có thêm trường verifyStatus để theo dõi xác minh
 ```
 
