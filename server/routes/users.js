@@ -4,7 +4,7 @@ const adminVerifyRouter = express.Router();
 const User       = require('../models/User');
 const Application = require('../models/Application');
 const Invitation  = require('../models/Invitation'); // Import Invitation Model
-const { protect, authorize } = require('../middleware/auth');
+const { protect, authorize, generateToken } = require('../middleware/auth');
 const { uploadImage, uploadToCloudinary } = require('../middleware/upload');
 
 // ================================================================
@@ -17,6 +17,14 @@ const { uploadImage, uploadToCloudinary } = require('../middleware/upload');
 
 router.put('/employer/profile', protect, authorize('employer'), async (req, res) => {
   try {
+    // Bắt buộc và xác thực Mã số thuế khi có trong request body
+    if (req.body.taxCode !== undefined) {
+      const taxCode = String(req.body.taxCode || '').trim();
+      if (taxCode.length < 10 || taxCode.length > 13) {
+        return res.status(400).json({ success: false, message: 'Mã số thuế là bắt buộc và phải có từ 10 đến 13 ký tự.' });
+      }
+    }
+
     const allowed = ['companyName','phone','website','industry','companySize',
       'description','videoUrl','address','province','district','taxCode','founded','galleryImages'];
     const update = {};
@@ -49,17 +57,21 @@ router.post('/employer/gallery', protect, authorize('employer'), uploadImage.arr
 // GET /api/employer/applications — phải trước /employer/:id
 router.get('/employer/applications', protect, authorize('employer'), async (req, res) => {
   try {
-    const { jobId, status, page = 1, limit = 20 } = req.query;
+    const { jobId, status, appId, page = 1, limit = 20 } = req.query;
     const Job = require('../models/Job');
     const myJobs   = await Job.find({ employer: req.user._id }).select('_id title');
     const myJobIds = myJobs.map(j => j._id);
     const filter   = { job: { $in: myJobIds } };
     if (jobId)  filter.job    = jobId;
-    if (status) filter.status = status;
+    if (status) {
+      const statuses = status.toString().split(',').map(s => s.trim()).filter(Boolean);
+      if (statuses.length > 0) filter.status = { $in: statuses };
+    }
+    if (appId)  filter._id    = appId;
     const skip  = (Number(page) - 1) * Number(limit);
     const total = await Application.countDocuments(filter);
     const apps  = await Application.find(filter)
-      .populate('candidate', 'email candidateProfile.fullName candidateProfile.avatar candidateProfile.phone candidateProfile.skills')
+      .populate('candidate', 'email candidateProfile.fullName candidateProfile.avatar candidateProfile.phone candidateProfile.skills candidateProfile.cvList candidateProfile.province candidateProfile.district')
       .populate('job', 'title')
       .sort('-createdAt').skip(skip).limit(Number(limit));
     res.json({ success: true, total, applications: apps });
@@ -241,14 +253,15 @@ router.put('/employer/verify-experience/:candidateId/:expId', protect, authorize
 // vì Mongoose không hỗ trợ query nested array field trực tiếp như vậy
 router.get('/employer/search-cvs', protect, authorize('employer'), async (req, res) => {
   try {
-    const { keyword, skill, province, page = 1, limit = 12 } = req.query;
+    const { keyword, skill, province, district, page = 1, limit = 12 } = req.query;
 
     // Chỉ filter những field top-level, lọc cvList.isPublic ở JS
     const filter = { role: 'candidate', isActive: true };
     if (province) filter['candidateProfile.province'] = province;
+    if (district) filter['candidateProfile.district'] = district;
 
     let candidates = await User.find(filter)
-      .select('email candidateProfile.fullName candidateProfile.avatar candidateProfile.skills candidateProfile.province candidateProfile.desiredSalary candidateProfile.cvList')
+      .select('email candidateProfile.fullName candidateProfile.avatar candidateProfile.skills candidateProfile.province candidateProfile.district candidateProfile.desiredSalary candidateProfile.cvList')
       .populate('candidateProfile.province', 'name')
       .lean();
 
@@ -257,26 +270,28 @@ router.get('/employer/search-cvs', protect, authorize('employer'), async (req, r
       (c.candidateProfile?.cvList || []).some(cv => cv.isPublic === true)
     );
 
-    // Lọc theo keyword (tên hoặc kỹ năng)
+    // Lọc theo keyword (CHỈ TÊN HOẶC EMAIL)
     if (keyword) {
       const kw = keyword.toLowerCase();
       candidates = candidates.filter(c => {
         const name   = (c.candidateProfile?.fullName || c.email || '').toLowerCase();
-        const skills = (c.candidateProfile?.skills || []).map(s =>
-          (typeof s === 'object' ? s.name : s || '').toLowerCase()
-        );
-        return name.includes(kw) || skills.some(s => s.includes(kw));
+        return name.includes(kw);
       });
     }
 
-    // Lọc theo kỹ năng cụ thể
+    // Lọc theo kỹ năng cụ thể (Tìm trong cả Profile và CV public)
     if (skill) {
       const sk = skill.toLowerCase();
-      candidates = candidates.filter(c =>
-        (c.candidateProfile?.skills || []).some(s =>
-          (typeof s === 'object' ? s.name : s || '').toLowerCase().includes(sk)
-        )
-      );
+      candidates = candidates.filter(c => {
+        // Kỹ năng từ hồ sơ
+        const profileSkills = (c.candidateProfile?.skills || []).map(s => (typeof s === 'object' ? s.name : s || '').toLowerCase());
+        // Kỹ năng từ CV công khai
+        const cvSkills = (c.candidateProfile?.cvList || [])
+          .filter(cv => cv.isPublic)
+          .flatMap(cv => (cv.skills || []).map(s => (typeof s === 'object' ? s.name : s || '').toLowerCase()));
+        
+        return profileSkills.some(s => s.includes(sk)) || cvSkills.some(s => s.includes(sk));
+      });
     }
 
     const total = candidates.length;
@@ -303,6 +318,80 @@ router.get('/employer/search-cvs', protect, authorize('employer'), async (req, r
     console.error('[search-cvs error]', err);
     res.status(500).json({ success: false, message: err.message });
   }
+});
+
+// GET /api/employers — Public list of employers
+router.get('/employers', async (req, res) => {
+  try {
+    const { keyword, province, district, page = 1, limit = 12 } = req.query;
+    const filter = { role: 'employer', isActive: true };
+
+    if (keyword) {
+      filter['employerProfile.companyName'] = { $regex: keyword, $options: 'i' };
+    }
+    if (province) filter['employerProfile.province'] = province;
+    if (district) filter['employerProfile.district'] = district;
+
+    const skip = (Number(page) - 1) * Number(limit);
+    const total = await User.countDocuments(filter);
+    const users = await User.find(filter)
+      .select('employerProfile email')
+      .populate('employerProfile.province', 'name')
+      .sort('-createdAt')
+      .skip(skip)
+      .limit(Number(limit));
+
+    res.json({ success: true, total, totalPages: Math.ceil(total / Number(limit)), employers: users });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ================================================================
+// WALK-IN CANDIDATES (Ứng viên vãng lai)
+// ================================================================
+
+// POST /api/employer/walk-in-candidates — Tạo ứng viên vãng lai
+router.post('/employer/walk-in-candidates', protect, authorize('employer'), async (req, res) => {
+  try {
+    const { fullName, email } = req.body;
+    // Nếu không có email, tự sinh email giả lập
+    const finalEmail = email || `walkin_${Date.now()}_${Math.random().toString(36).substr(2, 5)}@labor.local`;
+    // Mật khẩu ngẫu nhiên (Employer không cần biết)
+    const password = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
+
+    const user = await User.create({
+      email: finalEmail,
+      password, 
+      role: 'candidate',
+      candidateProfile: { fullName: fullName || 'Ứng viên vãng lai' },
+      createdBy: req.user._id // Lưu ID Employer đã tạo (cần đảm bảo Schema User cho phép field này hoặc dùng strict: false)
+    });
+
+    res.json({ success: true, user: { _id: user._id, email: user.email, candidateProfile: user.candidateProfile } });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// GET /api/employer/walk-in-candidates — Lấy danh sách do mình tạo
+router.get('/employer/walk-in-candidates', protect, authorize('employer'), async (req, res) => {
+  try {
+    const users = await User.find({ createdBy: req.user._id, role: 'candidate' }).sort('-createdAt');
+    res.json({ success: true, users });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
+// POST /api/employer/walk-in-candidates/:id/switch-token — Lấy token để login
+router.post('/employer/walk-in-candidates/:id/switch-token', protect, authorize('employer'), async (req, res) => {
+  try {
+    // Chỉ cho phép lấy token của user do chính employer này tạo
+    const user = await User.findOne({ _id: req.params.id, createdBy: req.user._id, role: 'candidate' });
+    if (!user) return res.status(403).json({ success: false, message: 'Bạn không có quyền truy cập tài khoản này' });
+
+    const token = generateToken(user._id);
+    res.json({ success: true, token, user: { id: user._id, email: user.email, role: 'candidate', displayName: user.candidateProfile?.fullName } });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
 // GET /api/employer/:id — route ĐỘNG, đặt CUỐI CÙNG trong block employer
@@ -347,11 +436,40 @@ router.post('/candidate/avatar', protect, authorize('candidate'), uploadImage.si
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
+// POST /api/candidate/switch-back-to-employer — Walk-in login ngược lại Employer
+router.post('/candidate/switch-back-to-employer', protect, authorize('candidate'), async (req, res) => {
+  try {
+    // Kiểm tra xem user này có phải do employer tạo không
+    if (!req.user.createdBy) {
+      return res.status(403).json({ success: false, message: 'Tài khoản này không phải là ứng viên vãng lai.' });
+    }
+
+    const employer = await User.findById(req.user.createdBy);
+    if (!employer) return res.status(404).json({ success: false, message: 'Tài khoản Employer gốc không tồn tại.' });
+
+    const token = generateToken(employer._id);
+    res.json({
+      success: true,
+      token,
+      user: { id: employer._id, email: employer.email, role: employer.role, displayName: employer.displayName }
+    });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
 // CV routes
 router.get('/candidate/cvs', protect, authorize('candidate'), async (req, res) => {
   try {
     const user = await User.findById(req.user._id).select('candidateProfile.cvList');
-    res.json({ success: true, cvList: user.candidateProfile?.cvList || [] });
+    const cvList = user.candidateProfile?.cvList || [];
+
+    // Kiểm tra CV nào đã được dùng để ứng tuyển
+    const cvIds = cvList.map(c => c._id);
+    const usedApps = await Application.find({ candidate: req.user._id, cvId: { $in: cvIds } }).select('cvId');
+    const usedCvIds = new Set(usedApps.map(a => a.cvId.toString()));
+
+    const result = cvList.map(cv => ({ ...cv.toObject(), isUsed: usedCvIds.has(cv._id.toString()) }));
+
+    res.json({ success: true, cvList: result });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
@@ -380,6 +498,16 @@ router.post('/candidate/cvs', protect, authorize('candidate'), async (req, res) 
 
 router.put('/candidate/cvs/:cvId', protect, authorize('candidate'), async (req, res) => {
   try {
+    // Kiểm tra: Không được sửa CV đã nộp ứng tuyển
+    const isUsed = await Application.exists({ candidate: req.user._id, cvId: req.params.cvId });
+    if (isUsed) {
+      // Cho phép sửa nếu CHỈ cập nhật trạng thái isPublic
+      const keys = Object.keys(req.body);
+      if (!(keys.length === 1 && keys[0] === 'isPublic')) {
+        return res.status(400).json({ success: false, message: 'Không thể sửa nội dung CV đã được sử dụng để ứng tuyển.' });
+      }
+    }
+
     const fields = ['title','summary','skills','education','experience',
       'certifications','languages','desiredPosition','desiredSalary','desiredWorkTypes','isPublic'];
     const setObj = { 'candidateProfile.cvList.$.updatedAt': new Date() };
@@ -587,6 +715,31 @@ router.delete('/candidate/followed-companies/:employerId', protect, authorize('c
     await User.findByIdAndUpdate(req.user._id, { $pull: { followedCompanies: req.params.employerId } });
     res.json({ success: true, message: 'Đã bỏ theo dõi công ty' });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
+// GET /api/candidate/:id — Public profile for employers to view
+// Must be after other /candidate/... static routes, and protected for employers
+router.get('/candidate/:id', protect, authorize('employer'), async (req, res) => {
+  try {
+    const candidate = await User.findOne({ _id: req.params.id, role: 'candidate', isActive: true })
+      .select('email candidateProfile.fullName candidateProfile.avatar candidateProfile.bio candidateProfile.province candidateProfile.district candidateProfile.phone candidateProfile.gender candidateProfile.dateOfBirth candidateProfile.resumeUrl candidateProfile.skills candidateProfile.cvList')
+      .populate('candidateProfile.province', 'name slug')
+      .lean();
+
+    if (!candidate) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy ứng viên' });
+    }
+
+    // Filter to only show public CVs
+    if (candidate.candidateProfile && candidate.candidateProfile.cvList) {
+      candidate.candidateProfile.cvList = candidate.candidateProfile.cvList.filter(cv => cv.isPublic === true);
+    }
+
+    res.json({ success: true, candidate });
+  } catch (err) {
+    console.error('[GET /candidate/:id] error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 // ================================================================

@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Danh sách Công ty — LaborConnect</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root { --primary: #0F4C81; --accent: #F97316; }
+    * { font-family: 'Be Vietnam Pro', sans-serif; }
+    .company-card { transition: all 0.2s ease; }
+    .company-card:hover { transform: translateY(-4px); box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1); }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800 flex flex-col min-h-screen">
+
+<!-- NAVBAR -->
+<nav class="bg-white shadow-sm sticky top-0 z-50">
+  <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+    <a href="index.html" class="flex items-center gap-2">
+      <span class="text-blue-800 font-extrabold text-xl tracking-tight">Labor<span class="text-orange-500">Connect</span></span>
+    </a>
+    <div class="hidden md:flex items-center gap-6 text-sm font-medium text-gray-600">
+      <a href="index.html" class="hover:text-blue-700">Việc làm</a>
+      <a href="companies.html" class="text-blue-700 font-bold">Công ty</a>
+    </div>
+    <div class="flex items-center gap-3" id="navAuth">
+      <a href="login.html" class="border border-blue-700 text-blue-700 hover:bg-blue-50 font-semibold rounded-lg transition-all text-sm py-2 px-4">Đăng nhập</a>
+      <a href="register.html" class="bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg transition-all text-sm py-2 px-4">Đăng ký</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HEADER -->
+<section class="bg-blue-900 py-12 px-4 text-center text-white">
+  <h1 class="text-3xl md:text-4xl font-extrabold mb-3">Nhà tuyển dụng hàng đầu</h1>
+  <p class="text-blue-200 text-sm md:text-base max-w-2xl mx-auto">Khám phá văn hóa công ty, môi trường làm việc và các cơ hội nghề nghiệp hấp dẫn từ các đối tác của chúng tôi.</p>
+
+  <!-- Search Box -->
+  <div class="max-w-4xl mx-auto mt-8 bg-white p-2 rounded-2xl shadow-xl flex flex-col md:flex-row items-center gap-2">
+    <div class="flex-1 w-full relative">
+      <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
+      <input id="searchKeyword" type="text" placeholder="Nhập tên công ty..."
+        class="w-full pl-10 pr-4 py-3 rounded-xl text-gray-800 focus:outline-none text-sm"
+        onkeydown="if(event.key === 'Enter') searchCompanies()" />
+    </div>
+    <div class="h-8 w-px bg-gray-200 hidden md:block"></div>
+    <div class="w-full md:w-48 px-2"><select id="filterProvince" class="bg-transparent border-0 text-black text-sm focus:ring-0 w-full py-3 cursor-pointer" onchange="loadDistricts(this.value)"><option value="">Tất cả Tỉnh/Thành</option></select></div>
+    <div class="h-8 w-px bg-gray-200 hidden md:block"></div>
+    <div class="w-full md:w-48 px-2"><select id="filterDistrict" class="bg-transparent border-0 text-black text-sm focus:ring-0 w-full py-3 cursor-pointer"><option value="">Tất cả Quận/Huyện</option></select></div>
+    
+    <button onclick="searchCompanies()" class="w-full md:w-auto bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-md">
+      Tìm kiếm
+    </button>
+  </div>
+</section>
+
+<!-- MAIN CONTENT -->
+<main class="flex-1 max-w-7xl mx-auto px-4 py-12 w-full">
+  <div class="flex items-center justify-between mb-6">
+    <h2 class="text-xl font-bold text-gray-800">Danh sách công ty (<span id="totalCount">0</span>)</h2>
+  </div>
+
+  <!-- Grid -->
+  <div id="companyGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <!-- Skeleton loading -->
+    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 h-64 animate-pulse">
+      <div class="flex gap-4">
+        <div class="w-16 h-16 bg-gray-200 rounded-xl"></div>
+        <div class="flex-1 space-y-2 py-2">
+          <div class="h-4 bg-gray-200 rounded w-3/4"></div>
+          <div class="h-3 bg-gray-200 rounded w-1/2"></div>
+        </div>
+      </div>
+      <div class="mt-6 space-y-2">
+        <div class="h-3 bg-gray-200 rounded w-full"></div>
+        <div class="h-3 bg-gray-200 rounded w-5/6"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pagination -->
+  <div id="pagination" class="flex justify-center gap-2 mt-12"></div>
+</main>
+
+<!-- FOOTER -->
+<footer class="bg-white border-t py-8 mt-auto">
+  <div class="max-w-7xl mx-auto px-4 text-center text-sm text-gray-500">
+    <p class="font-bold text-blue-900 text-lg mb-1">LaborConnect</p>
+    <p>&copy; 2025 Nền tảng kết nối tuyển dụng.</p>
+  </div>
+</footer>
+
+<script>
+  const API = 'http://localhost:5000/api';
+  let currentPage = 1;
+  let allLocations = [];
+
+  // ==========================
+  // CHECK AUTH
+  // ==========================
+  function checkAuthNav() {
+    const token = localStorage.getItem('lc_token');
+    const user  = JSON.parse(localStorage.getItem('lc_user') || 'null');
+    if (token && user) {
+      let dashUrl = '#';
+      if (user.role === 'admin')     dashUrl = 'admin.html';
+      if (user.role === 'employer')  dashUrl = 'dashboard-employer.html';
+      if (user.role === 'candidate') dashUrl = 'dashboard-candidate.html';
+
+      document.getElementById('navAuth').innerHTML = `
+        <span class="text-sm text-gray-600 hidden md:inline">Xin chào, <a href="${dashUrl}" class="font-bold hover:underline">${user.displayName || user.email}</a></span>
+        <button onclick="logout()" class="text-sm text-red-500 hover:underline ml-2">Đăng xuất</button>
+      `;
+    }
+  }
+
+  function logout() {
+    localStorage.removeItem('lc_token');
+    localStorage.removeItem('lc_user');
+    window.location.href = 'index.html';
+  }
+
+  // ==========================
+  // LOAD LOCATIONS
+  // ==========================
+  async function loadLocations() {
+    try {
+      const r = await fetch(`${API}/locations`);
+      const d = await r.json();
+      allLocations = d.locations || [];
+      const sel = document.getElementById('filterProvince');
+      sel.innerHTML = '<option value="" selected>Tất cả Tỉnh/Thành</option>';
+      allLocations.forEach(l => {
+        const opt = document.createElement('option');
+        opt.value = l._id;
+        opt.textContent = l.name;
+        sel.appendChild(opt);
+      });
+    } catch (e) { console.error(e); }
+  }
+
+  function loadDistricts(provinceId) {
+    const sel = document.getElementById('filterDistrict');
+    sel.innerHTML = '<option value="" selected>Tất cả Quận/Huyện</option>';
+    const p = allLocations.find(l => l._id === provinceId);
+    if (p) {
+      (p.districts || []).filter(d => d.isActive).forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d.slug;
+        opt.textContent = d.name;
+        sel.appendChild(opt);
+      });
+    }
+  }
+
+  // ==========================
+  // LOAD COMPANIES
+  // ==========================
+  async function searchCompanies() {
+    currentPage = 1;
+    await loadCompanies();
+  }
+
+  async function loadCompanies(page = currentPage) {
+    const container = document.getElementById('companyGrid');
+    const keyword = document.getElementById('searchKeyword').value.trim();
+    const province = document.getElementById('filterProvince').value;
+    const district = document.getElementById('filterDistrict').value;
+    
+    // Show skeleton if first load or search
+    if (page === 1) container.innerHTML = '<div class="col-span-1 md:col-span-3 text-center py-10 text-gray-400">Đang tải dữ liệu...</div>';
+
+    try {
+      const params = new URLSearchParams({ page, limit: 12 });
+      if (keyword) params.set('keyword', keyword);
+      if (province) params.set('province', province);
+      if (district) params.set('district', district);
+
+      const res = await fetch(`${API}/employers?${params}`);
+      const data = await res.json();
+
+      if (!data.success || !data.employers.length) {
+        container.innerHTML = `
+          <div class="col-span-1 md:col-span-3 text-center py-16 text-gray-400">
+            <div class="text-6xl mb-4">🏢</div>
+            <p class="text-lg font-medium">Không tìm thấy công ty nào</p>
+            <p class="text-sm">Hãy thử từ khóa khác</p>
+          </div>`;
+        document.getElementById('totalCount').textContent = '0';
+        document.getElementById('pagination').innerHTML = '';
+        return;
+      }
+
+      document.getElementById('totalCount').textContent = data.total;
+      renderGrid(data.employers);
+      renderPagination(data.totalPages, page);
+      
+    } catch (err) {
+      console.error(err);
+      container.innerHTML = `<p class="text-red-500 col-span-3 text-center">Lỗi tải dữ liệu. Vui lòng thử lại sau.</p>`;
+    }
+  }
+
+  function renderGrid(employers) {
+    const container = document.getElementById('companyGrid');
+    container.innerHTML = employers.map(user => {
+      const p = user.employerProfile || {};
+      const logo = p.logo || 'https://ui-avatars.com/api/?name=Logo';
+      const name = p.companyName || user.email;
+      const industry = p.industry || 'Đa ngành nghề';
+
+      let loc = p.province?.name || 'Toàn quốc';
+      if (p.province?._id && p.district) {
+        const prov = allLocations.find(l => l._id === p.province._id);
+        const dist = prov?.districts?.find(d => d.slug === p.district);
+        if (dist) loc = `${dist.name}, ${p.province.name}`;
+      }
+
+      const size = p.companySize ? `👥 ${p.companySize}` : '';
+
+      return `
+        <div class="company-card bg-white rounded-2xl p-6 border border-gray-100 shadow-sm flex flex-col h-full cursor-pointer"
+             onclick="window.location.href='company-profile.html?id=${user._id}'">
+          <div class="flex items-start gap-4 mb-4">
+            <img src="${logo}" alt="${name}" class="w-16 h-16 rounded-xl object-contain border border-gray-100 bg-white shadow-sm flex-shrink-0" />
+            <div class="min-w-0">
+              <h3 class="font-bold text-gray-900 text-lg leading-tight line-clamp-2 group-hover:text-blue-700 transition-colors">${name}</h3>
+              <p class="text-sm text-gray-500 mt-1 truncate">${industry}</p>
+            </div>
+          </div>
+          
+          <div class="mt-auto pt-4 border-t border-gray-50 flex items-center justify-between text-sm text-gray-600">
+            <span class="flex items-center gap-1">📍 ${loc}</span>
+            <span class="text-xs bg-gray-100 px-2 py-1 rounded-md">${size}</span>
+          </div>
+          
+          <div class="mt-4">
+             <span class="block w-full text-center text-sm font-semibold text-blue-700 bg-blue-50 py-2 rounded-lg hover:bg-blue-100 transition-colors">
+               Xem hồ sơ công ty
+             </span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderPagination(totalPages, currentPage) {
+    const nav = document.getElementById('pagination');
+    if (totalPages <= 1) { nav.innerHTML = ''; return; }
+    
+    let html = '';
+    for(let i=1; i<=totalPages; i++) {
+      const active = i === currentPage ? 'bg-blue-800 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200';
+      html += `<button onclick="loadCompanies(${i})" class="${active} w-10 h-10 rounded-lg text-sm font-medium transition-all">${i}</button>`;
+    }
+    nav.innerHTML = html;
+  }
+
+  (async () => {
+    checkAuthNav();
+    await loadLocations();
+    loadCompanies();
+  })();
+</script>
+</body>
+</html>

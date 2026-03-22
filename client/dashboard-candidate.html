@@ -42,7 +42,7 @@
       <p class="text-xs text-gray-400 mt-0.5">Ứng viên</p>
     </div>
     <div class="p-4 border-b border-gray-100 flex items-center gap-3">
-      <img id="sidebarAvatar" src="https://via.placeholder.com/40?text=U" class="w-10 h-10 rounded-xl object-cover border border-gray-100" />
+      <img id="sidebarAvatar" src="https://ui-avatars.com/api/?name=U" class="w-10 h-10 rounded-xl object-cover border border-gray-100" />
       <div class="min-w-0">
         <p id="sidebarName" class="text-sm font-semibold text-gray-800 truncate">Ứng viên</p>
         <p class="text-xs text-gray-400">Candidate</p>
@@ -58,6 +58,7 @@
       <button onclick="switchSection('followed')"    class="sidebar-link" id="nav-followed">❤️ Công ty theo dõi</button>
     </nav>
     <div class="p-3 border-t border-gray-100">
+      <button id="btnBackToEmp" onclick="switchBackToEmployer()" class="sidebar-link text-blue-700 bg-blue-50 mb-2 hover:bg-blue-100 hidden">🔙 Về Employer</button>
       <button onclick="logout()" class="sidebar-link text-red-500 hover:bg-red-50">🚪 Đăng xuất</button>
     </div>
   </aside>
@@ -103,7 +104,7 @@
       <h1 class="text-2xl font-extrabold text-gray-800 mb-6">Hồ sơ cá nhân</h1>
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-center">
-          <img id="profileAvatar" src="https://via.placeholder.com/96?text=U" class="w-24 h-24 rounded-full object-cover border-2 border-gray-100 mx-auto mb-3" />
+          <img id="profileAvatar" src="https://ui-avatars.com/api/?name=U" class="w-24 h-24 rounded-full object-cover border-2 border-gray-100 mx-auto mb-3" />
           <label class="cursor-pointer text-xs bg-blue-50 text-blue-700 px-3 py-2 rounded-lg hover:bg-blue-100">
             📷 Đổi ảnh
             <input type="file" id="avatarInput" accept="image/*" class="hidden" onchange="uploadAvatar(this)" />
@@ -132,6 +133,10 @@
             <div class="md:col-span-2"><label class="label-xs">Giới thiệu bản thân</label>
               <textarea id="pf_bio" rows="3" class="input-base resize-none"></textarea></div>
             <div><label class="label-xs">Link CV / Resume</label><input id="pf_resumeUrl" type="url" class="input-base" /></div>
+            <div class="md:col-span-2 mt-1">
+              <label class="label-xs mb-2">Danh sách Kỹ năng (Từ các CV đã tạo)</label>
+              <div id="pf_skills_list" class="flex flex-wrap gap-2 p-3 bg-gray-50 rounded-xl border border-gray-100 min-h-[50px] items-center"></div>
+            </div>
           </div>
           <button onclick="saveProfile()" class="mt-4 bg-blue-900 hover:bg-blue-800 text-white font-semibold px-6 py-2.5 rounded-xl text-sm">💾 Lưu hồ sơ</button>
         </div>
@@ -259,6 +264,7 @@ const API   = 'http://localhost:5000/api';
 const token = localStorage.getItem('lc_token');
 const user  = JSON.parse(localStorage.getItem('lc_user') || '{}');
 let allLocations = [];
+let myCVs = [];
 let skillCount = 0, eduCount = 0, expCount = 0;
 
 function authH() { return { 'Content-Type':'application/json','Authorization':`Bearer ${token}` }; }
@@ -326,6 +332,12 @@ async function loadProfile() {
   if (!d.success) return;
   const p = d.user?.candidateProfile || {};
   document.getElementById('sidebarName').textContent = p.fullName || user.email;
+  
+  // Kiểm tra nếu là walk-in candidate -> hiện nút quay lại
+  if (d.user.createdBy) {
+    document.getElementById('btnBackToEmp').classList.remove('hidden');
+  }
+
   if (p.avatar) { document.getElementById('sidebarAvatar').src = p.avatar; document.getElementById('profileAvatar').src = p.avatar; }
   document.getElementById('pf_fullName').value  = p.fullName   || '';
   document.getElementById('pf_phone').value     = p.phone      || '';
@@ -338,6 +350,21 @@ async function loadProfile() {
     loadPfDistricts(p.province._id);
     setTimeout(() => { document.getElementById('pf_district').value = p.district || ''; }, 300);
   }
+
+  // Load skills from CVs
+  try {
+    const rCv = await fetch(`${API}/candidate/cvs`, { headers: authH() });
+    const dCv = await rCv.json();
+    const skills = new Set();
+    (dCv.cvList||[]).forEach(cv => (cv.skills||[]).forEach(s => skills.add((s && typeof s==='object')?s.name:s)));
+    
+    const container = document.getElementById('pf_skills_list');
+    if (skills.size) {
+      container.innerHTML = Array.from(skills).filter(Boolean).map(s => 
+        `<label class="inline-flex items-center gap-1.5 bg-white border border-gray-200 px-3 py-1.5 rounded-lg shadow-sm"><input type="checkbox" checked disabled class="text-blue-600 rounded border-gray-300 focus:ring-0 cursor-default"><span class="text-xs font-medium text-gray-700">${s}</span></label>`
+      ).join('');
+    } else container.innerHTML = '<span class="text-xs text-gray-400 italic">Chưa có thông tin kỹ năng từ CV</span>';
+  } catch (e) { console.error('Load skills error:', e); }
 }
 
 async function saveProfile() {
@@ -362,6 +389,20 @@ async function uploadAvatar(input) {
   const r = await fetch(`${API}/candidate/avatar`, { method:'POST', headers:{'Authorization':`Bearer ${token}`}, body:fd });
   const d = await r.json();
   if (d.success) { document.getElementById('profileAvatar').src = d.avatarUrl; document.getElementById('sidebarAvatar').src = d.avatarUrl; showAlert('✅ Đổi ảnh thành công'); }
+}
+
+// --- AUTO LOGIN BACK TO EMPLOYER ---
+async function switchBackToEmployer() {
+  if (!confirm('Quay lại tài khoản Employer quản lý?')) return;
+  try {
+    const r = await fetch(`${API}/candidate/switch-back-to-employer`, { method:'POST', headers: authH() });
+    const d = await r.json();
+    if (d.success) {
+      localStorage.setItem('lc_token', d.token);
+      localStorage.setItem('lc_user', JSON.stringify(d.user));
+      window.location.href = 'walkin-candidates.html'; // Quay lại trang quản lý walk-in
+    } else showAlert(d.message, 'error');
+  } catch(e) { showAlert('Lỗi kết nối', 'error'); }
 }
 
 // ==================== OVERVIEW ====================
@@ -402,7 +443,8 @@ async function loadOverview() {
 async function loadCVs() {
   const r = await fetch(`${API}/candidate/cvs`, { headers: authH() });
   const d = await r.json();
-  const list = d.cvList || [];
+  myCVs = d.cvList || [];
+  const list = myCVs;
   const container = document.getElementById('cvList');
   if (!list.length) {
     container.innerHTML = `<div class="col-span-3 text-center text-gray-400 py-12"><div class="text-5xl mb-3">📄</div><p>Chưa có CV nào. Hãy tạo CV đầu tiên!</p></div>`;
@@ -410,13 +452,17 @@ async function loadCVs() {
   }
   container.innerHTML = list.map(cv => {
     const skills = (cv.skills || []).map(s => typeof s === 'object' ? s.name : s).filter(Boolean);
+    const isUsed = cv.isUsed;
+
     return `
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-3">
       <div class="flex items-start justify-between gap-2">
         <h3 class="font-bold text-gray-800 text-sm leading-snug">${cv.title}</h3>
-        <span class="tag ${cv.isPublic ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'} flex-shrink-0">
-          ${cv.isPublic ? '🌐 Công khai' : '🔒 Riêng tư'}
-        </span>
+        <div class="flex flex-col items-end gap-1">
+          <span class="tag ${cv.isPublic ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'} flex-shrink-0">
+            ${cv.isPublic ? '🌐 Công khai' : '🔒 Riêng tư'}
+          </span>
+        </div>
       </div>
       ${cv.summary ? `<p class="text-xs text-gray-500 line-clamp-2">${cv.summary}</p>` : ''}
       <div class="flex flex-wrap gap-1.5">
@@ -426,8 +472,13 @@ async function loadCVs() {
       ${cv.desiredSalary?.min ? `<p class="text-xs text-orange-600 font-medium">💰 ${(cv.desiredSalary.min/1e6).toFixed(0)}–${(cv.desiredSalary.max/1e6).toFixed(0)} triệu VND</p>` : ''}
       <p class="text-xs text-gray-400">Cập nhật: ${new Date(cv.updatedAt||cv.createdAt).toLocaleDateString('vi-VN')}</p>
       <div class="flex gap-2 pt-1 border-t border-gray-50">
-        <button onclick="editCV('${cv._id}')" class="flex-1 text-xs border border-blue-200 text-blue-700 py-1.5 rounded-lg hover:bg-blue-50">✏️ Sửa</button>
-        <button onclick="deleteCV('${cv._id}')" class="flex-1 text-xs border border-red-200 text-red-500 py-1.5 rounded-lg hover:bg-red-50">🗑 Xóa</button>
+        <button onclick="window.open('cv-view.html?cvId=${cv._id}', '_blank')" class="flex-1 text-xs border border-gray-200 text-gray-600 py-1.5 rounded-lg hover:bg-gray-50">👁 Xem</button>
+        ${isUsed 
+          ? `<button class="flex-1 text-xs border border-gray-200 text-gray-400 py-1.5 rounded-lg cursor-not-allowed" title="Đã nộp ứng tuyển, không thể sửa">🔒 Đã nộp</button>` 
+          : `<button onclick="editCV('${cv._id}')" class="flex-1 text-xs border border-blue-200 text-blue-700 py-1.5 rounded-lg hover:bg-blue-50">✏️ Sửa</button>`
+        }
+        ${!cv.isPublic ? `<button onclick="setCvPublic('${cv._id}')" class="flex-1 text-xs border border-green-200 text-green-700 py-1.5 rounded-lg hover:bg-green-50">🌐 Công khai</button>` : ''}
+        <button onclick="deleteCV('${cv._id}')" class="flex-1 text-xs border border-red-200 text-red-500 py-1.5 rounded-lg hover:bg-red-50" ${isUsed ? 'disabled title="Đã nộp ứng tuyển"' : ''}>🗑 Xóa</button>
       </div>
     </div>`;
   }).join('');
@@ -635,7 +686,7 @@ function showCvForm(cv = null) {
   document.getElementById('cv_title').value         = cv?.title || '';
   document.getElementById('cv_summary').value       = cv?.summary || '';
   document.getElementById('cv_desiredPosition').value = cv?.desiredPosition || '';
-  document.getElementById('cv_isPublic').value      = cv?.isPublic !== false ? 'true' : 'false';
+  document.getElementById('cv_isPublic').value      = (cv && cv.isPublic === false) ? 'false' : 'true';
   // Lương — 2 input riêng
   document.getElementById('cv_salaryMin').value = cv?.desiredSalary?.min ? (cv.desiredSalary.min / 1e6) : '';
   document.getElementById('cv_salaryMax').value = cv?.desiredSalary?.max ? (cv.desiredSalary.max / 1e6) : '';
@@ -684,6 +735,16 @@ async function saveCV() {
   } catch (e) { showAlert('Lỗi kết nối', 'error'); }
 }
 
+async function setCvPublic(cvId) {
+  try {
+    const r = await fetch(`${API}/candidate/cvs/${cvId}`, {
+      method: 'PUT', headers: authH(), body: JSON.stringify({ isPublic: true })
+    });
+    const d = await r.json();
+    d.success ? (showAlert('✅ Đã công khai CV'), loadCVs()) : showAlert(d.message, 'error');
+  } catch (e) { showAlert('Lỗi kết nối', 'error'); }
+}
+
 async function editCV(cvId) {
   const r = await fetch(`${API}/candidate/cvs`, { headers: authH() });
   const d = await r.json();
@@ -723,7 +784,7 @@ async function loadApplications() {
   if (!apps.length) { container.innerHTML = '<div class="text-center text-gray-400 py-12"><div class="text-5xl mb-3">📬</div><p>Không có ứng tuyển nào</p></div>'; return; }
   container.innerHTML = apps.map(app => {
     const si = STATUS_INFO[app.status] || STATUS_INFO.pending;
-    const logo = app.job?.employer?.employerProfile?.logo || 'https://via.placeholder.com/40?text=Co';
+    const logo = app.job?.employer?.employerProfile?.logo || 'https://ui-avatars.com/api/?name=Co';
     const company = app.job?.employer?.employerProfile?.companyName || '—';
     const salary = app.job?.salary?.isNegotiate ? 'Thỏa thuận' :
       app.job?.salary?.min ? `${(app.job.salary.min/1e6).toFixed(0)}–${(app.job.salary.max/1e6).toFixed(0)} triệu` : '—';
@@ -754,13 +815,21 @@ async function loadSavedJobs() {
     const jobs = (d.savedJobs || []).filter(j => j && j._id);
     if (!jobs.length) { container.innerHTML = `<div class="col-span-3 text-center text-gray-400 py-12"><div class="text-5xl mb-3">🔖</div><p class="font-medium">Chưa lưu việc làm nào</p><a href="index.html" class="mt-3 inline-block text-blue-600 hover:underline text-sm">Tìm việc làm →</a></div>`; return; }
     container.innerHTML = jobs.map(job => {
-      const logo = job.employer?.employerProfile?.logo || 'https://via.placeholder.com/48?text=Co';
+      const logo = job.employer?.employerProfile?.logo || 'https://ui-avatars.com/api/?name=Co';
       const company = job.employer?.employerProfile?.companyName || '—';
       const salary = job.salary?.isNegotiate ? 'Thỏa thuận' : (job.salary?.min && job.salary?.max) ? `${(job.salary.min/1e6).toFixed(0)}–${(job.salary.max/1e6).toFixed(0)} triệu` : 'Liên hệ';
       const wts = (job.workTypes||[]).map(w=>`<span class="tag bg-blue-50 text-blue-700">${w.icon||'💼'} ${w.name}</span>`).join('');
+      
+      let location = job.province?.name || '—';
+      if (job.province?._id && job.district) {
+        const prov = allLocations.find(p => p._id === job.province._id);
+        const dist = prov?.districts?.find(d => d.slug === job.district);
+        if (dist) location = `${dist.name}, ${job.province.name}`;
+      }
+
       return `<div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-col gap-3">
         <div class="flex items-start gap-3">
-          <img src="${logo}" class="w-12 h-12 rounded-xl object-cover border border-gray-100 flex-shrink-0" onerror="this.src='https://via.placeholder.com/48?text=Co'" />
+          <img src="${logo}" class="w-12 h-12 rounded-xl object-cover border border-gray-100 flex-shrink-0" onerror="this.src='https://ui-avatars.com/api/?name=Co'" />
           <div class="min-w-0 flex-1">
             <a href="job-detail.html?id=${job._id}" class="font-bold text-gray-800 text-sm hover:text-blue-700 line-clamp-2 block">${job.title||'Không có tiêu đề'}</a>
             <p class="text-xs text-gray-500 mt-0.5">${company}</p>
@@ -768,7 +837,7 @@ async function loadSavedJobs() {
         </div>
         <div class="flex flex-wrap gap-1.5">${wts}</div>
         <div class="flex items-center justify-between text-xs">
-          <span class="text-gray-400">📍 ${job.province?.name||'—'}</span>
+          <span class="text-gray-400">📍 ${location}</span>
           <span class="font-bold text-orange-500">${salary}</span>
         </div>
         <div class="flex gap-2 mt-1">
@@ -798,7 +867,7 @@ async function loadFollowed() {
   if (!companies.length) { container.innerHTML = '<div class="col-span-3 text-center text-gray-400 py-12"><div class="text-5xl mb-3">❤️</div><p>Chưa theo dõi công ty nào</p></div>'; return; }
   container.innerHTML = companies.map(c => {
     const p = c.employerProfile || {};
-    const logo = p.logo || 'https://via.placeholder.com/60?text=Co';
+    const logo = p.logo || 'https://ui-avatars.com/api/?name=Co';
     return `<div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-3 text-center">
       <img src="${logo}" class="w-16 h-16 rounded-2xl object-cover border border-gray-100 mx-auto" />
       <div>
@@ -837,7 +906,7 @@ async function loadInvitations() {
     container.innerHTML = list.map(inv => {
       const job = inv.job || {};
       const emp = inv.employer || {};
-      const logo = emp.employerProfile?.logo || 'https://via.placeholder.com/48?text=Co';
+      const logo = emp.employerProfile?.logo || 'https://ui-avatars.com/api/?name=Co';
       const isRejected = inv.status === 'rejected';
       const isAccepted = inv.status === 'accepted';
 

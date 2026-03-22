@@ -23,4 +23,4 @@ const deleteUser = async (email) => {
 };
 
 // Truyền email cần xóa vào đây
-deleteUser('admin@laborconnect.vn');
+deleteUser('walkin_1774123217096_39u39@labor.local');

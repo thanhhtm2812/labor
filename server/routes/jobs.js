@@ -3,6 +3,7 @@ const router  = express.Router();
 const Job     = require('../models/Job');
 const Application = require('../models/Application');
 const { protect, authorize } = require('../middleware/auth');
+const { uploadImage, uploadToCloudinary } = require('../middleware/upload');
 
 // ==========================================
 // QUAN TRỌNG: Route tĩnh phải đặt TRƯỚC route động /:id
@@ -125,18 +126,44 @@ router.delete('/:id', protect, authorize('employer', 'admin'), async (req, res) 
   }
 });
 
-// POST /api/jobs/:id/apply — Ứng tuyển (Candidate)
-router.post('/:id/apply', protect, authorize('candidate'), async (req, res) => {
+// GET /api/jobs/:id/application — Kiểm tra trạng thái ứng tuyển của user hiện tại
+router.get('/:id/application', protect, authorize('candidate'), async (req, res) => {
   try {
+    const application = await Application.findOne({ job: req.params.id, candidate: req.user._id });
+    res.json({ success: true, application });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// POST /api/jobs/:id/apply — Ứng tuyển (Candidate)
+router.post('/:id/apply', protect, authorize('candidate'), uploadImage.array('images', 3), async (req, res) => {
+  try {
+    const { cvId, resumeUrl, coverLetter } = req.body;
     const job = await Job.findOne({ _id: req.params.id, status: 'approved' });
     if (!job) return res.status(404).json({ success: false, message: 'Tin tuyển dụng không tồn tại' });
 
     const existing = await Application.findOne({ job: req.params.id, candidate: req.user._id });
-    if (existing) return res.status(409).json({ success: false, message: 'Bạn đã ứng tuyển vị trí này rồi' });
+    if (existing) {
+      if (existing.status === 'rejected') {
+        // Nếu hồ sơ trước đó bị từ chối -> Cho phép nộp lại (Xóa đơn cũ)
+        await Application.findByIdAndDelete(existing._id);
+        // Giảm số lượng apply cũ để tránh tính thừa khi tạo mới
+        await Job.findByIdAndUpdate(req.params.id, { $inc: { applyCount: -1 } });
+      } else {
+        return res.status(409).json({ success: false, message: 'Bạn đã ứng tuyển vị trí này rồi' });
+      }
+    }
+
+    let imageUrls = [];
+    if (req.files && req.files.length > 0) {
+      imageUrls = await Promise.all(req.files.map(f => uploadToCloudinary(f.buffer, 'labor-connect/applications')));
+    }
 
     const application = await Application.create({
       job: req.params.id, candidate: req.user._id,
-      coverLetter: req.body.coverLetter, resumeUrl: req.body.resumeUrl
+      cvId, coverLetter, resumeUrl,
+      images: imageUrls
     });
     await Job.findByIdAndUpdate(req.params.id, { $inc: { applyCount: 1 } });
     res.status(201).json({ success: true, message: 'Nộp hồ sơ thành công', application });

@@ -35,7 +35,7 @@ exports.uploadToCloudinary = async (fileBuffer, folder = 'labor-connect') => {
   if (!process.env.CLOUDINARY_CLOUD_NAME) {
     // Fallback: Trả về URL placeholder nếu chưa cấu hình Cloudinary
     console.warn('⚠️  Cloudinary chưa cấu hình, dùng placeholder URL');
-    return 'https://via.placeholder.com/300x300?text=Logo';
+    return 'https://ui-avatars.com/api/?name=Logo';
   }
 
   const cloudinary = require('cloudinary').v2;

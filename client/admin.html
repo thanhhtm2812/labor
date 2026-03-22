@@ -151,8 +151,12 @@
 
         <!-- Thêm tỉnh/thành -->
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <h2 class="font-bold text-gray-700 mb-4">➕ Thêm Tỉnh/Thành phố</h2>
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="font-bold text-gray-700" id="locFormTitle">➕ Thêm Tỉnh/Thành phố</h2>
+            <button onclick="resetLocForm()" id="locCancelBtn" class="text-xs text-gray-500 hover:text-gray-700 hidden">Hủy bỏ</button>
+          </div>
           <div class="space-y-3">
+            <input type="hidden" id="loc_id" />
             <div><label class="label-xs">Tên Tỉnh/Thành *</label>
               <input id="loc_name" type="text" class="input-base" placeholder="Hồ Chí Minh" /></div>
             <div><label class="label-xs">Slug *</label>
@@ -170,7 +174,7 @@
                 <option value="south">Miền Nam</option>
               </select>
             </div>
-            <button onclick="addLocation()"
+            <button onclick="saveLocation()" id="locSaveBtn"
               class="w-full bg-blue-800 hover:bg-blue-900 text-white font-semibold py-2.5 rounded-xl transition-all text-sm">
               Thêm tỉnh/thành
             </button>
@@ -185,8 +189,12 @@
 
         <!-- Quản lý Quận/Huyện -->
         <div class="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <h2 class="font-bold text-gray-700 mb-4">🏘️ Quản lý Quận/Huyện</h2>
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="font-bold text-gray-700" id="distFormTitle">🏘️ Quản lý Quận/Huyện</h2>
+            <button onclick="resetDistForm()" id="distCancelBtn" class="text-xs text-gray-500 hover:text-gray-700 hidden">Hủy bỏ</button>
+          </div>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <input type="hidden" id="dist_id" />
             <div class="md:col-span-1">
               <label class="label-xs">Chọn Tỉnh/Thành</label>
               <select id="dist_provinceSelect" class="input-base bg-white" onchange="loadDistrictManage(this.value)">
@@ -202,7 +210,7 @@
               <input id="dist_slug" type="text" class="input-base" placeholder="quan-1" />
             </div>
           </div>
-          <button onclick="addDistrict()"
+          <button onclick="saveDistrict()" id="distSaveBtn"
             class="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-2.5 rounded-xl text-sm mb-5">
             ➕ Thêm quận/huyện
           </button>
@@ -221,15 +229,19 @@
 
         <!-- Thêm mới -->
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <h2 class="font-bold text-gray-700 mb-4">➕ Thêm hình thức</h2>
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="font-bold text-gray-700" id="wtFormTitle">➕ Thêm hình thức</h2>
+            <button onclick="resetWorkTypeForm()" id="wtCancelBtn" class="text-xs text-gray-500 hover:text-gray-700 hidden">Hủy bỏ</button>
+          </div>
           <div class="space-y-3">
+            <input type="hidden" id="wt_id" />
             <div><label class="label-xs">Tên *</label>
               <input id="wt_name" type="text" class="input-base" placeholder="Toàn thời gian" /></div>
             <div><label class="label-xs">Slug *</label>
               <input id="wt_slug" type="text" class="input-base" placeholder="full-time" /></div>
             <div><label class="label-xs">Icon (emoji)</label>
               <input id="wt_icon" type="text" class="input-base" placeholder="🕐" /></div>
-            <button onclick="addWorkType()"
+            <button onclick="saveWorkType()" id="wtSaveBtn"
               class="w-full bg-blue-800 hover:bg-blue-900 text-white font-semibold py-2.5 rounded-xl transition-all text-sm">
               Thêm hình thức
             </button>
@@ -279,6 +291,8 @@
   const API   = 'http://localhost:5000/api';
   const token = localStorage.getItem('lc_token');
   let rejectingJobId = null;
+  let _adminLocs = [];
+  let _adminWorkTypes = [];
 
   function authHeader() { return { 'Content-Type':'application/json', 'Authorization':`Bearer ${token}` }; }
   function logout() { localStorage.clear(); window.location.href = 'login.html'; }
@@ -327,6 +341,13 @@
   async function loadAdminJobs() {
     const status = document.getElementById('jobStatusFilter').value;
     try {
+      if (!_adminLocs.length) {
+        try {
+          const rl = await fetch(`${API}/locations`);
+          const dl = await rl.json();
+          _adminLocs = dl.locations || [];
+        } catch (e) {}
+      }
       const r = await fetch(`${API}/admin/jobs?status=${status}&limit=50`, { headers: authHeader() });
       const d = await r.json();
       renderAdminJobs(d.jobs || []);
@@ -340,7 +361,16 @@
     const container = document.getElementById('adminJobsList');
     if (!jobs.length) { container.innerHTML = '<p class="text-gray-400 text-sm text-center py-8">Không có tin nào</p>'; return; }
 
-    container.innerHTML = jobs.map(job => `
+    container.innerHTML = jobs.map(job => {
+      let location = job.province?.name || '—';
+      if (job.province?._id && job.district && _adminLocs.length) {
+        const prov = _adminLocs.find(l => l._id === job.province._id);
+        if (prov) {
+          const dist = prov.districts?.find(d => d.slug === job.district);
+          if (dist) location = `${dist.name}, ${job.province.name}`;
+        }
+      }
+      return `
       <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
         <div class="flex items-start justify-between gap-4">
           <div class="min-w-0 flex-1">
@@ -351,7 +381,7 @@
             </div>
             <p class="text-sm text-gray-500 mt-0.5">
               🏢 ${job.employer?.employerProfile?.companyName || job.employer?.email || '—'}
-              &nbsp;·&nbsp; 📍 ${job.province?.name || '—'}
+              &nbsp;·&nbsp; 📍 ${location}
               &nbsp;·&nbsp; 📅 ${new Date(job.createdAt).toLocaleDateString('vi-VN')}
             </p>
             ${job.adminNote ? `<p class="text-xs text-red-500 mt-1">⚠️ ${job.adminNote}</p>` : ''}
@@ -371,8 +401,8 @@
             </button>
           </div>
         </div>
-      </div>`
-    ).join('');
+      </div>`;
+    }).join('');
   }
 
   async function approveJob(id) {
@@ -457,17 +487,27 @@
   // ==========================================
   async function loadAdminLocations() {
     try {
-      const r = await fetch(`${API}/locations`);
+      const r = await fetch(`${API}/locations/manage`, { headers: authHeader() });
       const d = await r.json();
       const locs = d.locations || [];
+      _adminLocs = locs; // Lưu lại để dùng khi sửa
       document.getElementById('locationsList').innerHTML = locs.map(l =>
-        `<div class="flex items-center justify-between text-sm p-2.5 rounded-xl hover:bg-gray-50 cursor-pointer"
-              onclick="selectProvinceForDistrict('${l._id}', '${l.name}')">
-          <div>
+        `<div class="flex items-center justify-between text-sm p-2.5 rounded-xl hover:bg-gray-50 group ${!l.isActive ? 'opacity-60 bg-gray-50' : ''}">
+          <div class="cursor-pointer flex-1" onclick="selectProvinceForDistrict('${l._id}', '${l.name}')">
             <span class="font-medium">${l.name}</span>
             <span class="text-gray-400 text-xs ml-2">(${l.districts?.length||0} quận/huyện)</span>
+            ${!l.isActive ? '<span class="ml-2 text-[10px] bg-gray-200 text-gray-500 px-1.5 py-0.5 rounded font-medium">Đã khóa</span>' : ''}
           </div>
-          <span class="text-xs text-blue-600 hover:underline">Quản lý →</span>
+          <div class="flex items-center gap-2">
+            <button onclick="toggleLocationActive('${l._id}', ${l.isActive})"
+              class="text-xs border ${l.isActive ? 'border-orange-200 text-orange-500 hover:bg-orange-50' : 'border-green-200 text-green-600 hover:bg-green-50'} px-2 py-1 rounded hover:bg-white"
+              title="${l.isActive ? 'Khóa' : 'Mở khóa'}">
+              ${l.isActive ? '🔒' : '🔓'}
+            </button>
+            <button onclick="editLocation('${l._id}')" class="text-xs border border-blue-200 text-blue-600 px-2 py-1 rounded hover:bg-blue-50">Sửa</button>
+            <span class="text-xs text-gray-400 cursor-pointer hover:text-blue-600 pl-2 border-l border-gray-200" 
+                  onclick="selectProvinceForDistrict('${l._id}', '${l.name}')">Quản lý Quận/Huyện →</span>
+          </div>
         </div>`
       ).join('');
 
@@ -480,12 +520,25 @@
     } catch (e) {}
   }
 
+  async function toggleLocationActive(id, currentActive) {
+    try {
+      const r = await fetch(`${API}/locations/${id}`, {
+        method: 'PUT', headers: authHeader(),
+        body: JSON.stringify({ isActive: !currentActive })
+      });
+      const d = await r.json();
+      if (d.success) { showAlert(`Đã ${!currentActive ? 'mở khóa' : 'khóa'} tỉnh/thành`); loadAdminLocations(); }
+      else showAlert(d.message, 'error');
+    } catch (e) { showAlert('Lỗi kết nối', 'error'); }
+  }
+
   function selectProvinceForDistrict(id, name) {
     document.getElementById('dist_provinceSelect').value = id;
     loadDistrictManage(id, name);
   }
 
   async function loadDistrictManage(provinceId, provinceName) {
+    resetDistForm();
     if (!provinceId) {
       document.getElementById('districtManageArea').classList.add('hidden');
       return;
@@ -509,32 +562,53 @@
             <p class="text-gray-400 text-xs">${dist.slug}</p>
           </div>
           <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button onclick="editDistrict('${dist._id}', '${dist.name}', '${dist.slug}')"
+              class="text-xs px-1.5 py-1 rounded text-blue-600 hover:bg-blue-50">✏️</button>
             <button onclick="toggleDistrictActive('${provinceId}','${dist._id}',${dist.isActive})"
               class="text-xs px-1.5 py-1 rounded ${dist.isActive ? 'text-orange-500 hover:bg-orange-50' : 'text-green-600 hover:bg-green-50'}">
               ${dist.isActive ? '🔒' : '🔓'}
             </button>
-            <button onclick="deleteDistrict('${provinceId}','${dist._id}')"
-              class="text-xs px-1.5 py-1 rounded text-red-400 hover:bg-red-50">🗑</button>
           </div>
         </div>`).join('');
     } catch (e) { console.error(e); }
   }
 
-  async function addDistrict() {
+  function editDistrict(id, name, slug) {
+    document.getElementById('dist_id').value = id;
+    document.getElementById('dist_name').value = name;
+    document.getElementById('dist_slug').value = slug;
+    document.getElementById('distSaveBtn').textContent = '💾 Lưu thay đổi';
+    document.getElementById('distFormTitle').textContent = '✏️ Sửa Quận/Huyện';
+    document.getElementById('distCancelBtn').classList.remove('hidden');
+  }
+
+  function resetDistForm() {
+    document.getElementById('dist_id').value = '';
+    document.getElementById('dist_name').value = '';
+    document.getElementById('dist_slug').value = '';
+    document.getElementById('distSaveBtn').textContent = '➕ Thêm quận/huyện';
+    document.getElementById('distFormTitle').textContent = '🏘️ Quản lý Quận/Huyện';
+    document.getElementById('distCancelBtn').classList.add('hidden');
+  }
+
+  async function saveDistrict() {
     const provinceId = document.getElementById('dist_provinceSelect').value;
+    const distId     = document.getElementById('dist_id').value;
     const name       = document.getElementById('dist_name').value.trim();
     const slug       = document.getElementById('dist_slug').value.trim();
+
     if (!provinceId) { showAlert('Vui lòng chọn tỉnh/thành', 'error'); return; }
     if (!name || !slug) { showAlert('Vui lòng nhập tên và slug quận/huyện', 'error'); return; }
+
+    const url = distId ? `${API}/locations/${provinceId}/districts/${distId}` : `${API}/locations/${provinceId}/districts`;
+    const method = distId ? 'PUT' : 'POST';
+
     try {
-      const r = await fetch(`${API}/locations/${provinceId}/districts`, {
-        method: 'POST', headers: authHeader(), body: JSON.stringify({ name, slug })
-      });
+      const r = await fetch(url, { method, headers: authHeader(), body: JSON.stringify({ name, slug }) });
       const d = await r.json();
       if (d.success) {
-        showAlert(`✅ Đã thêm ${name}`);
-        document.getElementById('dist_name').value = '';
-        document.getElementById('dist_slug').value = '';
+        showAlert(distId ? '✅ Cập nhật thành công' : '✅ Thêm thành công');
+        resetDistForm();
         loadDistrictManage(provinceId);
         loadAdminLocations();
       } else showAlert(d.message, 'error');
@@ -553,19 +627,34 @@
     } catch (e) {}
   }
 
-  async function deleteDistrict(provinceId, districtId) {
-    if (!confirm('Xóa quận/huyện này? Dữ liệu liên quan có thể bị ảnh hưởng.')) return;
-    try {
-      const r = await fetch(`${API}/locations/${provinceId}/districts/${districtId}`, {
-        method: 'DELETE', headers: authHeader()
-      });
-      const d = await r.json();
-      if (d.success) { showAlert('✅ Đã xóa quận/huyện'); loadDistrictManage(provinceId); loadAdminLocations(); }
-      else showAlert(d.message, 'error');
-    } catch (e) {}
+  function editLocation(id) {
+    const loc = _adminLocs.find(l => l._id === id);
+    if (!loc) return;
+    document.getElementById('loc_id').value = loc._id;
+    document.getElementById('loc_name').value = loc.name;
+    document.getElementById('loc_slug').value = loc.slug;
+    document.getElementById('loc_type').value = loc.type;
+    document.getElementById('loc_region').value = loc.region;
+    
+    document.getElementById('locFormTitle').textContent = '✏️ Sửa Tỉnh/Thành phố';
+    document.getElementById('locSaveBtn').textContent = '💾 Lưu thay đổi';
+    document.getElementById('locCancelBtn').classList.remove('hidden');
   }
 
-  async function addLocation() {
+  function resetLocForm() {
+    document.getElementById('loc_id').value = '';
+    document.getElementById('loc_name').value = '';
+    document.getElementById('loc_slug').value = '';
+    document.getElementById('loc_type').value = 'province';
+    document.getElementById('loc_region').value = 'north';
+    
+    document.getElementById('locFormTitle').textContent = '➕ Thêm Tỉnh/Thành phố';
+    document.getElementById('locSaveBtn').textContent = 'Thêm tỉnh/thành';
+    document.getElementById('locCancelBtn').classList.add('hidden');
+  }
+
+  async function saveLocation() {
+    const id = document.getElementById('loc_id').value;
     const body = {
       name:   document.getElementById('loc_name').value.trim(),
       slug:   document.getElementById('loc_slug').value.trim(),
@@ -574,9 +663,16 @@
     };
     if (!body.name || !body.slug) { showAlert('Vui lòng điền đầy đủ thông tin', 'error'); return; }
     try {
-      const r = await fetch(`${API}/locations`, { method:'POST', headers: authHeader(), body: JSON.stringify(body) });
+      const method = id ? 'PUT' : 'POST';
+      const url = id ? `${API}/locations/${id}` : `${API}/locations`;
+      
+      const r = await fetch(url, { method, headers: authHeader(), body: JSON.stringify(body) });
       const d = await r.json();
-      if (d.success) { showAlert('✅ Thêm thành công'); loadAdminLocations(); ['loc_name','loc_slug'].forEach(id => document.getElementById(id).value=''); }
+      if (d.success) { 
+        showAlert(id ? '✅ Cập nhật thành công' : '✅ Thêm thành công'); 
+        loadAdminLocations(); 
+        resetLocForm();
+      }
       else showAlert(d.message, 'error');
     } catch (e) {}
   }
@@ -586,29 +682,88 @@
   // ==========================================
   async function loadAdminWorkTypes() {
     try {
-      const r = await fetch(`${API}/worktypes`);
+      const r = await fetch(`${API}/worktypes/manage`, { headers: authHeader() });
       const d = await r.json();
-      document.getElementById('worktypesList').innerHTML = (d.workTypes||[]).map(wt =>
-        `<div class="flex items-center justify-between text-sm p-2.5 rounded-xl bg-gray-50">
-          <span>${wt.icon} ${wt.name} <span class="text-gray-400 text-xs ml-1">(${wt.slug})</span></span>
-          <button onclick="deleteWorkType('${wt._id}')"
-            class="text-xs text-red-400 hover:text-red-600 border border-red-100 px-2 py-1 rounded-lg hover:bg-red-50">Xóa</button>
+      _adminWorkTypes = d.workTypes || [];
+      document.getElementById('worktypesList').innerHTML = _adminWorkTypes.map(wt =>
+        `<div class="flex items-center justify-between text-sm p-2.5 rounded-xl bg-gray-50 ${!wt.isActive ? 'opacity-70 bg-gray-100' : ''}">
+          <div>
+            <span>${wt.icon} ${wt.name}</span>
+            <span class="text-gray-400 text-xs ml-1">(${wt.slug})</span>
+            ${!wt.isActive ? '<span class="ml-2 text-[10px] bg-gray-200 text-gray-500 px-1.5 py-0.5 rounded font-medium">Đã khóa</span>' : ''}
+          </div>
+          <div class="flex gap-2">
+            <button onclick="toggleWorkTypeActive('${wt._id}', ${wt.isActive})"
+              class="text-xs border ${wt.isActive ? 'border-orange-200 text-orange-500 hover:bg-orange-50' : 'border-green-200 text-green-600 hover:bg-green-50'} px-2 py-1 rounded-lg"
+              title="${wt.isActive ? 'Khóa' : 'Mở khóa'}">
+              ${wt.isActive ? '🔒' : '🔓'}
+            </button>
+            <button onclick="editWorkType('${wt._id}')"
+              class="text-xs text-blue-600 hover:text-blue-800 border border-blue-100 px-2 py-1 rounded-lg hover:bg-blue-50">Sửa</button>
+            <button onclick="deleteWorkType('${wt._id}')"
+              class="text-xs text-red-400 hover:text-red-600 border border-red-100 px-2 py-1 rounded-lg hover:bg-red-50">Xóa</button>
+          </div>
         </div>`
       ).join('');
     } catch (e) {}
   }
 
-  async function addWorkType() {
+  async function toggleWorkTypeActive(id, currentActive) {
+    try {
+      const r = await fetch(`${API}/worktypes/${id}`, {
+        method: 'PUT', headers: authHeader(),
+        body: JSON.stringify({ isActive: !currentActive })
+      });
+      const d = await r.json();
+      if (d.success) { showAlert(`Đã ${!currentActive ? 'mở khóa' : 'khóa'} hình thức`); loadAdminWorkTypes(); }
+      else showAlert(d.message, 'error');
+    } catch (e) { showAlert('Lỗi kết nối', 'error'); }
+  }
+
+  function editWorkType(id) {
+    const wt = _adminWorkTypes.find(w => w._id === id);
+    if (!wt) return;
+    document.getElementById('wt_id').value = wt._id;
+    document.getElementById('wt_name').value = wt.name;
+    document.getElementById('wt_slug').value = wt.slug;
+    document.getElementById('wt_icon').value = wt.icon;
+    
+    document.getElementById('wtFormTitle').textContent = '✏️ Sửa hình thức';
+    document.getElementById('wtSaveBtn').textContent = '💾 Lưu thay đổi';
+    document.getElementById('wtCancelBtn').classList.remove('hidden');
+  }
+
+  function resetWorkTypeForm() {
+    document.getElementById('wt_id').value = '';
+    document.getElementById('wt_name').value = '';
+    document.getElementById('wt_slug').value = '';
+    document.getElementById('wt_icon').value = '';
+    
+    document.getElementById('wtFormTitle').textContent = '➕ Thêm hình thức';
+    document.getElementById('wtSaveBtn').textContent = 'Thêm hình thức';
+    document.getElementById('wtCancelBtn').classList.add('hidden');
+  }
+
+  async function saveWorkType() {
+    const id = document.getElementById('wt_id').value;
     const body = {
       name: document.getElementById('wt_name').value.trim(),
       slug: document.getElementById('wt_slug').value.trim(),
       icon: document.getElementById('wt_icon').value.trim() || '💼',
     };
     if (!body.name || !body.slug) { showAlert('Vui lòng điền đầy đủ', 'error'); return; }
+    
+    const url = id ? `${API}/worktypes/${id}` : `${API}/worktypes`;
+    const method = id ? 'PUT' : 'POST';
+
     try {
-      const r = await fetch(`${API}/worktypes`, { method:'POST', headers: authHeader(), body: JSON.stringify(body) });
+      const r = await fetch(url, { method, headers: authHeader(), body: JSON.stringify(body) });
       const d = await r.json();
-      if (d.success) { showAlert('✅ Thêm thành công'); loadAdminWorkTypes(); ['wt_name','wt_slug','wt_icon'].forEach(id => document.getElementById(id).value=''); }
+      if (d.success) { 
+        showAlert(id ? '✅ Cập nhật thành công' : '✅ Thêm thành công'); 
+        loadAdminWorkTypes(); 
+        resetWorkTypeForm();
+      }
       else showAlert(d.message, 'error');
     } catch (e) {}
   }

@@ -38,7 +38,7 @@
 
     <!-- Company avatar & name -->
     <div class="p-4 border-b border-gray-100 flex items-center gap-3">
-      <img id="sidebarLogo" src="https://via.placeholder.com/40?text=Co" alt="Logo"
+      <img id="sidebarLogo" src="https://ui-avatars.com/api/?name=Co" alt="Logo"
         class="w-10 h-10 rounded-xl object-cover border border-gray-100" />
       <div class="min-w-0">
         <p id="sidebarName" class="text-sm font-semibold text-gray-800 truncate">Công ty của bạn</p>
@@ -56,6 +56,7 @@
       <button onclick="switchSection('invitations')"   class="sidebar-link w-full text-left" id="nav-invitations">💌 Lịch sử lời mời</button>
       <button onclick="switchSection('verify-exp')"    class="sidebar-link w-full text-left" id="nav-verify-exp">🔍 Xác minh kinh nghiệm</button>
       <button onclick="switchSection('search-cvs')"    class="sidebar-link w-full text-left" id="nav-search-cvs">🔎 Tìm CV ứng viên</button>
+      <a href="walkin-candidates.html" class="sidebar-link w-full text-left text-blue-700 bg-blue-50 mt-4 border border-blue-100 hover:bg-blue-100">⚡ Quản lý Walk-in</a>
     </nav>
 
     <div class="p-3 border-t border-gray-100">
@@ -109,7 +110,7 @@
         <!-- Upload Logo -->
         <div class="lg:col-span-1">
           <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-center">
-            <img id="profileLogo" src="https://via.placeholder.com/100?text=Logo" alt="Logo"
+            <img id="profileLogo" src="https://ui-avatars.com/api/?name=Logo" alt="Logo"
               class="w-24 h-24 rounded-2xl object-cover border-2 border-gray-100 mx-auto mb-3" />
             <p class="text-sm font-semibold text-gray-700 mb-2">Logo công ty</p>
             <label class="cursor-pointer inline-block text-xs bg-blue-50 text-blue-700 px-3 py-2 rounded-lg hover:bg-blue-100 transition-colors">
@@ -134,7 +135,7 @@
               <input id="pf_industry" type="text" class="input-base" placeholder="Công nghệ thông tin..." />
             </div>
             <div>
-              <label class="label-xs">Điện thoại</label>
+              <label class="label-xs">Điện thoại *</label>
               <input id="pf_phone" type="text" class="input-base" placeholder="0901..." />
             </div>
             <div>
@@ -142,7 +143,7 @@
               <input id="pf_website" type="url" class="input-base" placeholder="https://..." />
             </div>
             <div>
-              <label class="label-xs">Quy mô nhân sự</label>
+              <label class="label-xs">Quy mô nhân sự *</label>
               <select id="pf_companySize" class="input-base bg-white">
                 <option value="">-- Chọn --</option>
                 <option value="1-10">1–10</option>
@@ -158,13 +159,17 @@
               <input id="pf_founded" type="number" class="input-base" placeholder="2010" min="1900" max="2030" />
             </div>
             <div>
-              <label class="label-xs">Tỉnh/Thành phố</label>
+              <label class="label-xs">Mã số thuế *</label>
+              <input id="pf_taxCode" type="text" class="input-base" placeholder="10 đến 13 ký tự" />
+            </div>
+            <div>
+              <label class="label-xs">Tỉnh/Thành phố *</label>
               <select id="pf_province" class="input-base bg-white" onchange="loadProfileDistricts(this.value)">
                 <option value="">-- Chọn --</option>
               </select>
             </div>
             <div>
-              <label class="label-xs">Quận/Huyện</label>
+              <label class="label-xs">Quận/Huyện *</label>
               <select id="pf_district" class="input-base bg-white">
                 <option value="">-- Chọn --</option>
               </select>
@@ -250,8 +255,9 @@
 
     <!-- ==================== ĐĂNG TIN ==================== -->
     <div id="section-post-job" class="section">
-      <h1 class="text-2xl font-extrabold text-gray-800 mb-6">Đăng tin tuyển dụng</h1>
+      <h1 id="postJobTitle" class="text-2xl font-extrabold text-gray-800 mb-6">Đăng tin tuyển dụng</h1>
       <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 max-w-3xl">
+        <input type="hidden" id="job_id" />
         <div class="space-y-4">
           <div>
             <label class="label-xs">Tiêu đề công việc *</label>
@@ -373,11 +379,12 @@
         <div>
           <label class="label-xs">Trạng thái</label>
           <select id="cand_statusFilter" class="input-base w-auto bg-white text-sm" onchange="loadCandidates()">
+            <option value="pending,viewed" selected>Cần xử lý (Chờ & Đã xem)</option>
             <option value="">Tất cả</option>
             <option value="pending">Chờ xem xét</option>
             <option value="viewed">Đã xem</option>
             <option value="accepted">Đã tiếp nhận</option>
-            <option value="rejected">Đã từ chối</option>
+            <option value="rejected">Bị từ chối</option>
           </select>
         </div>
         <div class="self-end">
@@ -407,13 +414,16 @@
     <div id="section-search-cvs" class="section">
       <h1 class="text-2xl font-extrabold text-gray-800 mb-5">Tìm CV ứng viên</h1>
       <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-5">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div><label class="label-xs">Tên / Kỹ năng</label>
-            <input id="cv_keyword" type="text" class="input-base" placeholder="React, Node.js, Nguyễn Văn A..." /></div>
-          <div><label class="label-xs">Kỹ năng cụ thể</label>
-            <input id="cv_skill" type="text" class="input-base" placeholder="JavaScript..." /></div>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div><label class="label-xs">Họ tên ứng viên</label>
+            <input id="cv_keyword" type="text" class="input-base" placeholder="Nguyễn Văn A..." /></div>
+          <div><label class="label-xs">Kỹ năng</label>
+            <input id="cv_skill" type="text" class="input-base" placeholder="JavaScript, React..." /></div>
           <div><label class="label-xs">Tỉnh/Thành</label>
-            <select id="cv_province" class="input-base bg-white"><option value="">Tất cả</option></select>
+            <select id="cv_province" class="input-base bg-white" onchange="loadSearchDistricts(this.value)"><option value="">Tất cả</option></select>
+          </div>
+          <div><label class="label-xs">Quận/Huyện</label>
+            <select id="cv_district" class="input-base bg-white"><option value="">Tất cả</option></select>
           </div>
         </div>
         <button onclick="searchCVs()" class="mt-3 bg-blue-800 hover:bg-blue-900 text-white font-semibold px-6 py-2.5 rounded-xl text-sm">🔎 Tìm kiếm</button>
@@ -437,6 +447,7 @@
   const token = localStorage.getItem('lc_token');
   const user  = JSON.parse(localStorage.getItem('lc_user') || '{}');
   let allLocations = [];
+  let myJobsData = [];
   let selectedWorkTypes = new Set();
 
   function authHeader() {
@@ -466,6 +477,7 @@
     document.getElementById(`section-${name}`).classList.add('active');
     document.getElementById(`nav-${name}`).classList.add('active');
 
+    if (name === 'post-job')   resetJobForm();
     if (name === 'my-jobs')    loadMyJobs();
     if (name === 'candidates') loadCandidates();
     if (name === 'gallery')    loadGallery();
@@ -488,8 +500,9 @@
     const r = await fetch(`${API}/locations`);
     const d = await r.json();
     allLocations = d.locations || [];
-    ['pf_province', 'job_province'].forEach(selId => {
+    ['pf_province', 'job_province', 'cv_province'].forEach(selId => {
       const sel = document.getElementById(selId);
+      if (!sel) return;
       allLocations.forEach(l => {
         sel.innerHTML += `<option value="${l._id}" data-slug="${l.slug}">${l.name}</option>`;
       });
@@ -498,6 +511,16 @@
 
   function loadProfileDistricts(provinceId) { loadDistrictsInto(provinceId, 'pf_district'); }
   function loadJobDistricts(provinceId)     { loadDistrictsInto(provinceId, 'job_district'); }
+
+  function loadSearchDistricts(provinceId) {
+    const sel = document.getElementById('cv_district');
+    sel.innerHTML = '<option value="">Tất cả</option>';
+    if (!provinceId) return;
+    const province = allLocations.find(l => l._id === provinceId);
+    (province?.districts || []).filter(d => d.isActive).forEach(d => {
+      sel.innerHTML += `<option value="${d.slug}">${d.name}</option>`;
+    });
+  }
 
   function loadDistrictsInto(provinceId, selId) {
     const sel = document.getElementById(selId);
@@ -555,7 +578,7 @@
       }
 
       // Fill form
-      const fields = ['companyName','industry','phone','website','companySize','founded','address','videoUrl','description'];
+      const fields = ['companyName','industry','phone','website','companySize','founded','taxCode','address','videoUrl','description'];
       fields.forEach(f => {
         const el = document.getElementById(`pf_${f}`);
         if (el && p[f]) el.value = p[f];
@@ -573,6 +596,29 @@
     const btn = document.getElementById('saveProfileBtn');
     btn.disabled = true; btn.textContent = 'Đang lưu...';
 
+    const taxCode = document.getElementById('pf_taxCode').value.trim();
+    if (!taxCode || taxCode.length < 10 || taxCode.length > 13) {
+      showGlobalAlert('Mã số thuế là bắt buộc và phải có từ 10 đến 13 ký tự.', 'error');
+      btn.disabled = false; btn.innerHTML = '💾 Lưu hồ sơ';
+      return;
+    }
+
+    const province = document.getElementById('pf_province').value;
+    const district = document.getElementById('pf_district').value;
+    if (!province || !district) {
+      showGlobalAlert('Tỉnh/Thành phố và Quận/Huyện là bắt buộc.', 'error');
+      btn.disabled = false; btn.innerHTML = '💾 Lưu hồ sơ';
+      return;
+    }
+
+    const phone = document.getElementById('pf_phone').value.trim();
+    const companySize = document.getElementById('pf_companySize').value;
+    if (!phone || !companySize) {
+      showGlobalAlert('Điện thoại và Quy mô nhân sự là bắt buộc.', 'error');
+      btn.disabled = false; btn.innerHTML = '💾 Lưu hồ sơ';
+      return;
+    }
+
     const body = {
       companyName:  document.getElementById('pf_companyName').value.trim(),
       industry:     document.getElementById('pf_industry').value.trim(),
@@ -580,6 +626,7 @@
       website:      document.getElementById('pf_website').value.trim(),
       companySize:  document.getElementById('pf_companySize').value,
       founded:      Number(document.getElementById('pf_founded').value) || undefined,
+      taxCode:      taxCode,
       address:      document.getElementById('pf_address').value.trim(),
       province:     document.getElementById('pf_province').value || undefined,
       district:     document.getElementById('pf_district').value || undefined,
@@ -641,12 +688,15 @@
   // ĐĂNG TIN TUYỂN DỤNG
   // ==========================================
   async function postJob() {
+    const jobId = document.getElementById('job_id').value;
+    const isEditing = !!jobId;
+
     if (selectedWorkTypes.size === 0) {
       showGlobalAlert('Vui lòng chọn ít nhất 1 hình thức việc làm', 'error'); return;
     }
 
     const btn = document.getElementById('postJobBtn');
-    btn.disabled = true; btn.textContent = 'Đang đăng...';
+    btn.disabled = true; btn.textContent = isEditing ? 'Đang cập nhật...' : 'Đang đăng...';
 
     const isNegotiate = document.getElementById('job_negotiate').checked;
     const body = {
@@ -672,29 +722,95 @@
     };
 
     try {
-      const r = await fetch(`${API}/jobs`, {
-        method: 'POST', headers: authHeader(), body: JSON.stringify(body)
-      });
+      const url = isEditing ? `${API}/jobs/${jobId}` : `${API}/jobs`;
+      const method = isEditing ? 'PUT' : 'POST';
+
+      const r = await fetch(url, { method, headers: authHeader(), body: JSON.stringify(body) });
       const d = await r.json();
       if (d.success) {
-        showGlobalAlert('✅ Đăng tin thành công! Tin đang chờ Admin duyệt.');
-        // Reset form
-        ['job_title','job_category','job_description','job_requirements','job_benefits'].forEach(id => {
-          document.getElementById(id).value = '';
-        });
-        selectedWorkTypes.clear();
-        document.querySelectorAll('#job_workTypes button').forEach(c => {
-          c.className = 'px-3 py-1.5 rounded-full border text-xs font-medium transition-all border-gray-200 text-gray-600 hover:border-blue-400';
-        });
+        showGlobalAlert(isEditing ? '✅ Cập nhật tin thành công! Tin đang chờ Admin duyệt lại.' : '✅ Đăng tin thành công! Tin đang chờ Admin duyệt.');
+        resetJobForm();
         switchSection('my-jobs');
       } else {
-        showGlobalAlert(d.message || 'Đăng tin thất bại', 'error');
+        showGlobalAlert(d.message || (isEditing ? 'Cập nhật thất bại' : 'Đăng tin thất bại'), 'error');
       }
     } catch (e) {
       showGlobalAlert('Lỗi kết nối server', 'error');
     } finally {
-      btn.disabled = false; btn.textContent = '🚀 Đăng tin tuyển dụng';
+      btn.disabled = false;
+      btn.textContent = isEditing ? '💾 Cập nhật tin' : '🚀 Đăng tin tuyển dụng';
     }
+  }
+
+  function resetJobForm() {
+    document.getElementById('postJobTitle').textContent = 'Đăng tin tuyển dụng';
+    document.getElementById('postJobBtn').textContent = '🚀 Đăng tin tuyển dụng';
+    document.getElementById('job_id').value = '';
+
+    ['job_title','job_category','job_description','job_requirements','job_benefits', 'job_salaryMin', 'job_salaryMax', 'job_expiresAt'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    ['job_positions', 'job_province', 'job_district', 'job_experience', 'job_education'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el.tagName === 'SELECT') el.selectedIndex = 0;
+      else el.value = id === 'job_positions' ? '1' : '';
+    });
+    document.getElementById('job_negotiate').checked = false;
+    toggleSalary(document.getElementById('job_negotiate'));
+
+    selectedWorkTypes.clear();
+    document.querySelectorAll('#job_workTypes button').forEach(c => {
+      c.className = 'px-3 py-1.5 rounded-full border text-xs font-medium transition-all border-gray-200 text-gray-600 hover:border-blue-400';
+    });
+  }
+
+  function editJob(jobId) {
+    const job = myJobsData.find(j => j._id === jobId);
+    if (!job) {
+      showGlobalAlert('Không tìm thấy tin tuyển dụng để sửa.', 'error');
+      return;
+    }
+
+    switchSection('post-job');
+
+    document.getElementById('postJobTitle').textContent = 'Chỉnh sửa tin tuyển dụng';
+    document.getElementById('postJobBtn').textContent = '💾 Cập nhật tin';
+    document.getElementById('job_id').value = job._id;
+
+    document.getElementById('job_title').value = job.title || '';
+    document.getElementById('job_category').value = job.category || '';
+    document.getElementById('job_positions').value = job.positions || 1;
+    document.getElementById('job_province').value = job.province?._id || '';
+    if (job.province?._id) {
+      loadJobDistricts(job.province._id);
+      setTimeout(() => { document.getElementById('job_district').value = job.district || ''; }, 300);
+    }
+
+    selectedWorkTypes.clear();
+    document.querySelectorAll('#job_workTypes button').forEach(chip => {
+      const workTypeId = chip.dataset.id;
+      if ((job.workTypes || []).some(wt => wt._id === workTypeId)) {
+        selectedWorkTypes.add(workTypeId);
+        chip.className = 'px-3 py-1.5 rounded-full border text-xs font-medium transition-all border-blue-800 bg-blue-800 text-white';
+      } else {
+        chip.className = 'px-3 py-1.5 rounded-full border text-xs font-medium transition-all border-gray-200 text-gray-600 hover:border-blue-400';
+      }
+    });
+
+    const isNegotiate = job.salary?.isNegotiate || false;
+    document.getElementById('job_negotiate').checked = isNegotiate;
+    toggleSalary(document.getElementById('job_negotiate'));
+    if (!isNegotiate) {
+      document.getElementById('job_salaryMin').value = job.salary?.min ? job.salary.min / 1e6 : '';
+      document.getElementById('job_salaryMax').value = job.salary?.max ? job.salary.max / 1e6 : '';
+    }
+
+    document.getElementById('job_experience').value = job.experience || 'no-experience';
+    document.getElementById('job_education').value = job.education || 'any';
+    document.getElementById('job_description').value = job.description || '';
+    document.getElementById('job_requirements').value = job.requirements || '';
+    document.getElementById('job_benefits').value = job.benefits || '';
+    document.getElementById('job_expiresAt').value = job.expiresAt ? job.expiresAt.slice(0, 10) : '';
   }
 
   // ==========================================
@@ -704,6 +820,7 @@
     try {
       const r = await fetch(`${API}/jobs/employer/my-jobs`, { headers: authHeader() });
       const d = await r.json();
+      myJobsData = d.jobs || [];
       const jobs = d.jobs || [];
 
       document.getElementById('statTotalJobs').textContent    = jobs.length;
@@ -719,6 +836,7 @@
     try {
       const r = await fetch(`${API}/jobs/employer/my-jobs`, { headers: authHeader() });
       const d = await r.json();
+      myJobsData = d.jobs || [];
       renderMyJobsList(d.jobs || []);
     } catch (e) {}
   }
@@ -745,25 +863,45 @@
   const STATUS_LABEL = { pending:'Chờ duyệt', approved:'Đã duyệt', rejected:'Từ chối', expired:'Hết hạn', closed:'Đã đóng' };
 
   function renderJobRow(job, showDelete = false) {
-    const badge = `<span class="status-badge ${STATUS_BADGE[job.status] || ''}">${STATUS_LABEL[job.status] || job.status}</span>`;
+    const mainBadge = `<span class="status-badge ${STATUS_BADGE[job.status] || ''}">${STATUS_LABEL[job.status] || job.status}</span>`;
     const wts   = (job.workTypes||[]).map(w=>`<span class="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">${w.icon||''} ${w.name}</span>`).join(' ');
+
+    let expiryBadge = '';
+    // Chỉ hiển thị trạng thái hạn cho tin đã được duyệt
+    if (job.status === 'approved') {
+      if (job.expiresAt && new Date(job.expiresAt) < new Date()) {
+        expiryBadge = `<span class="status-badge bg-gray-200 text-gray-600">Đã hết hạn</span>`;
+      } else {
+        expiryBadge = `<span class="status-badge bg-green-100 text-green-700">Đang hiển thị</span>`;
+      }
+    }
+
+    let location = job.province?.name || '—';
+    if (job.province?._id && job.district) {
+      const prov = allLocations.find(l => l._id === job.province._id);
+      if (prov) {
+        const dist = prov.districts?.find(d => d.slug === job.district);
+        if (dist) location = `${dist.name}, ${job.province.name}`;
+      }
+    }
 
     return `
       <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-center justify-between gap-4">
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-2 flex-wrap">
             <p class="font-semibold text-gray-800 truncate">${job.title}</p>
-            ${badge}
+            ${mainBadge}
+            ${expiryBadge}
           </div>
           <div class="flex flex-wrap gap-1.5 mt-1.5">${wts}</div>
-          <p class="text-xs text-gray-400 mt-1">📍 ${job.province?.name||'—'} &nbsp;·&nbsp; 👁 ${job.viewCount||0} lượt xem &nbsp;·&nbsp; 📅 ${new Date(job.createdAt).toLocaleDateString('vi-VN')}</p>
+          <p class="text-xs text-gray-400 mt-1">📍 ${location} &nbsp;·&nbsp; 👁 ${job.viewCount||0} lượt xem &nbsp;·&nbsp; 📅 ${new Date(job.createdAt).toLocaleDateString('vi-VN')}</p>
           ${job.adminNote ? `<p class="text-xs text-red-500 mt-1">⚠️ ${job.adminNote}</p>` : ''}
         </div>
         <div class="flex gap-2 flex-shrink-0">
           <a href="job-detail.html?id=${job._id}" target="_blank"
             class="text-xs text-blue-600 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-50">Xem</a>
-          ${(showDelete && job.status === 'rejected') ? `<button onclick="deleteJob('${job._id}', this)"
-            class="text-xs text-red-500 border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-50">Xóa</button>` : ''}
+          <button onclick="editJob('${job._id}')"
+            class="text-xs text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50">Sửa</button>
         </div>
       </div>`;
   }
@@ -972,7 +1110,7 @@
     pending:  { label: 'Chờ xem xét', cls: 'bg-yellow-100 text-yellow-700' },
     viewed:   { label: 'Đã xem',       cls: 'bg-blue-100 text-blue-700'   },
     accepted: { label: 'Đã tiếp nhận', cls: 'bg-green-100 text-green-700' },
-    rejected: { label: 'Đã từ chối',   cls: 'bg-red-100 text-red-700'     },
+    rejected: { label: 'Bị từ chối',   cls: 'bg-red-100 text-red-700'     },
   };
 
   async function loadCandidates() {
@@ -1005,21 +1143,76 @@
 
       container.innerHTML = apps.map(app => {
         const cp     = app.candidate?.candidateProfile || {};
-        const avatar = cp.avatar || 'https://via.placeholder.com/48?text=UV';
+        const avatar = cp.avatar || 'https://ui-avatars.com/api/?name=UV';
         const name   = cp.fullName || app.candidate?.email || '—';
         const phone  = cp.phone || '—';
-        const rawSkills = cp.skills || [];
-        const skills = rawSkills.map(s => typeof s === 'object' ? s.name : s).slice(0, 4);
+        
+        const skillSet = new Set();
+        (cp.cvList || []).forEach(cv => (cv.skills || []).forEach(s => skillSet.add((s && typeof s === 'object') ? s.name : s)));
+        const rawSkills = Array.from(skillSet).filter(Boolean);
+        const skills = rawSkills.slice(0, 4);
         const si     = APP_STATUS[app.status] || APP_STATUS.pending;
         const appliedAt = new Date(app.createdAt).toLocaleDateString('vi-VN');
         const viewedAt  = app.viewedAt ? new Date(app.viewedAt).toLocaleDateString('vi-VN') : null;
+
+        const cvList = cp.cvList || [];
+        const appliedCv = cvList.find(cv => String(cv._id) === String(app.cvId));
+        const images = app.images || [];
+
+        let location = '—';
+        if (cp.province) {
+          const prov = allLocations.find(l => l._id === cp.province);
+          if (prov) {
+            const dist = prov.districts?.find(d => d.slug === cp.district);
+            location = dist ? `${dist.name}, ${prov.name}` : prov.name;
+          }
+        }
+
+        const applicationDetailsHtml = (appliedCv || app.coverLetter || (images && images.length > 0)) ? `
+          <details class="mt-3 pt-3 border-t border-gray-100">
+            <summary class="text-xs text-blue-600 cursor-pointer hover:underline font-medium">📄 Xem chi tiết ứng tuyển</summary>
+            <div class="mt-2 space-y-3">
+              ${appliedCv ? `
+                <div>
+                  <p class="text-xs font-semibold text-gray-500">CV đã sử dụng:</p>
+                  <div class="mt-1 bg-blue-50 p-3 rounded-lg border border-blue-100 hover:bg-blue-100 transition-colors cursor-pointer"
+                       onclick="window.open('cv-view.html?id=${app._id}', '_blank')">
+                    <p class="font-bold text-sm text-blue-800 flex items-center gap-1">📄 ${appliedCv.title}</p>
+                    ${appliedCv.summary ? `<p class="text-xs text-gray-600 italic mt-1">"${appliedCv.summary}"</p>` : ''}
+                  </div>
+                </div>
+              ` : (app.resumeUrl ? `
+                <div>
+                  <p class="text-xs font-semibold text-gray-500">CV / Portfolio (link):</p>
+                  <a href="${app.resumeUrl}" target="_blank" class="text-xs text-blue-600 hover:underline break-all">📎 ${app.resumeUrl}</a>
+                </div>
+              ` : '')}
+
+              ${app.coverLetter ? `
+                <div>
+                  <p class="text-xs font-semibold text-gray-500">Giới thiệu nhanh:</p>
+                  <p class="mt-1 text-xs text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-200 leading-relaxed whitespace-pre-line">${app.coverLetter}</p>
+                </div>
+              ` : ''}
+
+              ${(images && images.length > 0) ? `
+                <div>
+                  <p class="text-xs font-semibold text-gray-500">Ảnh đính kèm:</p>
+                  <div class="mt-1 flex flex-wrap gap-2">
+                    ${images.map(img => `<a href="${img}" target="_blank" title="Xem ảnh"><img src="${img}" class="h-16 w-16 object-cover rounded-lg border border-gray-200 hover:ring-2 ring-blue-400 transition" /></a>`).join('')}
+                  </div>
+                </div>
+              ` : ''}
+            </div>
+          </details>
+        ` : '';
 
         return `
           <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5" id="app_${app._id}">
             <div class="flex items-start gap-4">
               <!-- Avatar -->
               <img src="${avatar}" class="w-14 h-14 rounded-2xl object-cover border border-gray-100 flex-shrink-0"
-                onerror="this.src='https://via.placeholder.com/56?text=UV'" />
+                onerror="this.src='https://ui-avatars.com/api/?name=UV'" />
 
               <!-- Info -->
               <div class="flex-1 min-w-0">
@@ -1031,6 +1224,7 @@
                 <p class="text-xs text-gray-500 mt-1">
                   📞 ${phone}
                   &nbsp;·&nbsp; 📧 ${app.candidate?.email || '—'}
+                  &nbsp;·&nbsp; 📍 ${location}
                   &nbsp;·&nbsp; 📅 Nộp: ${appliedAt}
                   ${viewedAt ? `&nbsp;·&nbsp; 👁 Xem: ${viewedAt}` : ''}
                 </p>
@@ -1038,7 +1232,7 @@
                 <!-- Skills -->
                 ${skills.length ? `<div class="flex flex-wrap gap-1.5 mt-2">
                   ${skills.map(s => `<span class="tag bg-blue-50 text-blue-700">${s}</span>`).join('')}
-                  ${rawSkills.length > 4 ? `<span class="tag bg-gray-50 text-gray-400">+${rawSkills.length - 4}</span>` : ''}
+                  ${rawSkills.length > 4 ? `<span class="tag bg-gray-50 text-gray-400 cursor-help" title="${rawSkills.slice(4).join(', ')}">+${rawSkills.length - 4}</span>` : ''}
                 </div>` : ''}
 
                 <!-- Vị trí ứng tuyển -->
@@ -1046,17 +1240,7 @@
                   💼 Ứng tuyển: <span class="text-gray-600 font-medium">${app.job?.title || '—'}</span>
                 </p>
 
-                <!-- Cover Letter -->
-                ${app.coverLetter ? `<details class="mt-2">
-                  <summary class="text-xs text-blue-600 cursor-pointer hover:underline">📄 Xem thư giới thiệu</summary>
-                  <p class="mt-1.5 text-xs text-gray-600 bg-gray-50 rounded-xl p-3 leading-relaxed">${app.coverLetter}</p>
-                </details>` : ''}
-
-                <!-- Resume link -->
-                ${app.resumeUrl ? `<a href="${app.resumeUrl}" target="_blank"
-                  class="inline-flex items-center gap-1 text-xs text-green-600 hover:underline mt-1.5">
-                  📎 Xem CV / Portfolio →
-                </a>` : ''}
+                ${applicationDetailsHtml}
 
                 <!-- Ghi chú của employer -->
                 ${app.employerNote ? `<p class="mt-2 text-xs bg-yellow-50 text-yellow-700 rounded-lg px-3 py-1.5">
@@ -1249,7 +1433,7 @@
         const st = ST_MAP[inv.status] || ST_MAP.pending;
         const c = inv.candidate || {};
         const cp = c.candidateProfile || {};
-        const avatar = cp.avatar || 'https://via.placeholder.com/48?text=UV';
+        const avatar = cp.avatar || 'https://ui-avatars.com/api/?name=UV';
 
         const history = (inv.responseHistory || []).sort((a, b) => new Date(a.respondedAt) - new Date(b.respondedAt));
         const historyHtml = history.length > 0 ?
@@ -1287,21 +1471,15 @@
   // TÌM KIẾM CV CÔNG KHAI
   // ==========================================
   async function initSearchCVs() {
-    // Load province options
-    const sel = document.getElementById('cv_province');
-    if (sel && sel.options.length <= 1) {
-      try {
-        const r = await fetch(`${API}/locations`);
-        const d = await r.json();
-        (d.locations || []).forEach(l => sel.innerHTML += `<option value="${l._id}">${l.name}</option>`);
-      } catch (e) {}
-    }
+    // Locations are already loaded in init() via loadLocations()
+    // which now includes 'cv_province'
   }
 
   async function searchCVs(page = 1) {
     const keyword  = document.getElementById('cv_keyword')?.value.trim() || '';
     const skill    = document.getElementById('cv_skill')?.value.trim()   || '';
     const province = document.getElementById('cv_province')?.value       || '';
+    const district = document.getElementById('cv_district')?.value       || '';
     const container = document.getElementById('cvSearchResults');
     const totalEl   = document.getElementById('cv_searchTotal');
 
@@ -1312,6 +1490,7 @@
       if (keyword)  params.set('keyword', keyword);
       if (skill)    params.set('skill', skill);
       if (province) params.set('province', province);
+      if (district) params.set('district', district);
 
       const r = await fetch(`${API}/employer/search-cvs?${params}`, { headers: authHeader() });
       const d = await r.json();
@@ -1326,18 +1505,30 @@
 
       container.innerHTML = candidates.map(c => {
         const cp      = c.candidateProfile || {};
-        const avatar  = cp.avatar || 'https://via.placeholder.com/56?text=UV';
+        const avatar  = cp.avatar || 'https://ui-avatars.com/api/?name=UV';
         const name    = cp.fullName || c.email;
-        const skills  = (cp.skills || []).map(s => typeof s === 'object' ? s.name : s).filter(Boolean);
+        
+        const skillSet = new Set();
+        (cp.cvList || []).forEach(cv => (cv.skills || []).forEach(s => skillSet.add((s && typeof s === 'object') ? s.name : s)));
+        const skills = Array.from(skillSet).filter(Boolean);
+
         const salary  = cp.desiredSalary?.min ? `${(cp.desiredSalary.min/1e6).toFixed(0)}–${(cp.desiredSalary.max/1e6).toFixed(0)} triệu` : '';
         const pubCvs  = (cp.cvList || []).filter(cv => cv.isPublic);
+
+        let location = cp.province?.name || '';
+        if (cp.province?._id && cp.district) {
+          const prov = allLocations.find(l => l._id === cp.province._id);
+          const dist = prov?.districts?.find(d => d.slug === cp.district);
+          if (dist) location = `${dist.name}, ${cp.province.name}`;
+        }
+
         return `
           <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-3">
             <div class="flex items-center gap-3">
-              <img src="${avatar}" class="w-14 h-14 rounded-2xl object-cover border border-gray-100 flex-shrink-0" onerror="this.src='https://via.placeholder.com/56?text=UV'" />
+              <img src="${avatar}" class="w-14 h-14 rounded-2xl object-cover border border-gray-100 flex-shrink-0" onerror="this.src='https://ui-avatars.com/api/?name=UV'" />
               <div class="min-w-0">
                 <p class="font-bold text-gray-800 truncate">${name}</p>
-                <p class="text-xs text-gray-400">${cp.province?.name || ''}</p>
+                <p class="text-xs text-gray-400">${location}</p>
                 ${salary ? `<p class="text-xs text-orange-600 font-medium">💰 ${salary}</p>` : ''}
               </div>
             </div>

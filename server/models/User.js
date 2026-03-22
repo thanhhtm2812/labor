@@ -140,6 +140,7 @@ const userSchema = new mongoose.Schema({
   employerProfile:  employerProfileSchema,
   savedJobs:         [{ type: mongoose.Schema.Types.ObjectId, ref: 'Job' }],
   followedCompanies: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  createdBy:         { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Dùng cho ứng viên vãng lai (walk-in)
 }, { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } });
 
 userSchema.virtual('displayName').get(function() {

@@ -6,6 +6,7 @@ const applicationSchema = new mongoose.Schema({
   coverLetter: { type: String },
   resumeUrl:   { type: String },
   cvId:        { type: mongoose.Schema.Types.ObjectId },   // ID của CV trong candidateProfile.cvList
+  images:      [{ type: String }],                           // Ảnh đính kèm (nếu có)
 
   // Trạng thái do NHÀ TUYỂN DỤNG cập nhật
   status: {

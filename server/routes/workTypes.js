@@ -13,6 +13,14 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /api/worktypes/manage — Lấy tất cả (Admin only - bao gồm ẩn)
+router.get('/manage', protect, authorize('admin'), async (req, res) => {
+  try {
+    const workTypes = await WorkType.find().sort({ order: 1, isActive: -1, name: 1 });
+    res.json({ success: true, workTypes });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
 // POST /api/worktypes — Thêm hình thức (Admin only)
 router.post('/', protect, authorize('admin'), async (req, res) => {
   try {

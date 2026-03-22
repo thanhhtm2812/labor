@@ -36,7 +36,7 @@
     </a>
     <div class="hidden md:flex items-center gap-6 text-sm font-medium text-gray-600">
       <a href="#jobs" class="hover:text-blue-700">Việc làm</a>
-      <a href="company-profile.html" class="hover:text-blue-700">Công ty</a>
+      <a href="companies.html" class="hover:text-blue-700">Công ty</a>
     </div>
     <div class="flex items-center gap-3" id="navAuth">
       <a href="login.html" class="btn-outline text-sm py-2 px-4">Đăng nhập</a>
@@ -58,7 +58,7 @@
       <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
         <!-- Từ khóa -->
         <div class="md:col-span-1">
-          <label class="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Từ khóa</label>
+          <label class="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Vị trí việc làm</label>
           <input id="searchKeyword" type="text" placeholder="Vị trí, công ty..."
             class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm" />
         </div>
@@ -91,15 +91,6 @@
         </button>
       </div>
     </div>
-  </div>
-</section>
-
-<!-- ==================== STATS ==================== -->
-<section class="bg-white py-6 border-b">
-  <div class="max-w-5xl mx-auto px-4 grid grid-cols-3 gap-4 text-center">
-    <div><p class="text-3xl font-extrabold text-blue-800" id="statJobs">—</p><p class="text-sm text-gray-500 mt-1">Tin tuyển dụng</p></div>
-    <div><p class="text-3xl font-extrabold text-orange-500" id="statEmployers">—</p><p class="text-sm text-gray-500 mt-1">Nhà tuyển dụng</p></div>
-    <div><p class="text-3xl font-extrabold text-blue-800" id="statCandidates">—</p><p class="text-sm text-gray-500 mt-1">Ứng viên</p></div>
   </div>
 </section>
 
@@ -163,8 +154,13 @@
     const token = localStorage.getItem('lc_token');
     const user  = JSON.parse(localStorage.getItem('lc_user') || 'null');
     if (token && user) {
+      let dashUrl = '#';
+      if (user.role === 'admin')     dashUrl = 'admin.html';
+      if (user.role === 'employer')  dashUrl = 'dashboard-employer.html';
+      if (user.role === 'candidate') dashUrl = 'dashboard-candidate.html';
+
       document.getElementById('navAuth').innerHTML = `
-        <span class="text-sm text-gray-600">Xin chào, <strong>${user.displayName || user.email}</strong></span>
+        <span class="text-sm text-gray-600">Xin chào, <a href="${dashUrl}"><strong>${user.displayName || user.email}</strong></a></span>
         <button onclick="logout()" class="text-sm text-red-500 hover:underline ml-2">Đăng xuất</button>
       `;
     }
@@ -290,7 +286,7 @@
   function renderJobs(jobs) {
     const grid = document.getElementById('jobGrid');
     grid.innerHTML = jobs.map(job => {
-      const logo    = job.employer?.employerProfile?.logo || 'https://via.placeholder.com/60?text=Co';
+      const logo    = job.employer?.employerProfile?.logo || 'https://ui-avatars.com/api/?name=Co';
       const company = job.employer?.employerProfile?.companyName || 'Công ty';
       const wts     = (job.workTypes || []).map(wt =>
         `<span class="tag bg-blue-50 text-blue-700">${wt.icon || '💼'} ${wt.name}</span>`
@@ -300,7 +296,13 @@
         : job.salary?.min
           ? `${(job.salary.min/1e6).toFixed(0)}–${(job.salary.max/1e6).toFixed(0)} triệu`
           : 'Liên hệ';
-      const location = job.province?.name || '';
+
+      let location = job.province?.name || '';
+      if (job.province?._id && job.district) {
+        const prov = allLocations.find(p => p._id === job.province._id);
+        const dist = prov?.districts?.find(d => d.slug === job.district);
+        if (dist) location = `${dist.name}, ${job.province.name}`;
+      }
 
       return `
         <div class="job-card bg-white rounded-xl border border-gray-100 shadow-sm p-5 hover:shadow-md cursor-pointer"

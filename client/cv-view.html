@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chi tiết CV — LaborConnect</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    * { font-family: 'Be Vietnam Pro', sans-serif; }
+    .input-base { width:100%;border:1px solid #e5e7eb;border-radius:10px;padding:9px 13px;font-size:.875rem;background-color:#f9fafb;color:#374151; }
+    .input-base:focus { outline:none; }
+    .label-xs { display:block;font-size:.7rem;font-weight:600;color:#6b7280;margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em; }
+    .status-badge { display:inline-flex;align-items:center;padding:2px 10px;border-radius:999px;font-size:.7rem;font-weight:600; }
+    .tag { display:inline-flex;align-items:center;gap:3px;font-size:.7rem;font-weight:500;padding:3px 9px;border-radius:999px; }
+    .row-card { background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:12px;margin-bottom:8px; }
+    .verify-unverified { background:#f3f4f6;color:#6b7280; }
+    .verify-pending    { background:#fef9c3;color:#b45309; }
+    .verify-verified   { background:#dcfce7;color:#16a34a; }
+    .verify-rejected   { background:#fee2e2;color:#dc2626; }
+    
+    @media print {
+      body { background: white; }
+      .no-print { display: none; }
+      .print-shadow-none { box-shadow: none; }
+    }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen py-8 text-gray-800">
+
+<!-- Top Bar -->
+<div class="max-w-4xl mx-auto mb-6 flex items-center justify-between px-4 no-print">
+  <a href="dashboard-employer.html" class="text-sm font-medium text-gray-600 hover:text-blue-800 flex items-center gap-1">← Quay lại Dashboard</a>
+  <button onclick="window.print()" class="bg-blue-800 hover:bg-blue-900 text-white text-sm font-bold px-5 py-2 rounded-lg transition-colors">🖨️ In CV / Lưu PDF</button>
+</div>
+
+<!-- Main Content -->
+<div class="max-w-4xl mx-auto bg-white shadow-xl rounded-2xl border border-gray-100 overflow-hidden print-shadow-none p-6">
+  <div id="loading" class="p-16 text-center text-gray-400">
+    <div class="animate-spin rounded-full h-10 w-10 border-4 border-blue-200 border-t-blue-800 mx-auto mb-4"></div>
+    <p>Đang tải dữ liệu CV...</p>
+  </div>
+  
+  <div id="error" class="hidden p-16 text-center">
+    <div class="text-5xl mb-4">⚠️</div>
+    <p id="errorMsg" class="text-red-500 font-medium">Không thể tải dữ liệu</p>
+  </div>
+
+  <div id="cvContent" class="hidden">
+    <!-- Candidate Header (Minimal) -->
+    <div class="flex items-center gap-4 mb-6 pb-6 border-b border-gray-100">
+      <img id="candAvatar" src="https://ui-avatars.com/api/?name=UV" class="w-16 h-16 rounded-xl object-cover border border-gray-100" />
+      <div>
+        <h1 id="candName" class="text-xl font-extrabold text-gray-800"></h1>
+        <p id="candMeta" class="text-sm text-gray-500"></p>
+      </div>
+    </div>
+
+    <!-- Form Structure mimicking Dashboard -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+      <div class="md:col-span-2">
+        <label class="label-xs">Tiêu đề CV</label>
+        <input id="cv_title" type="text" class="input-base font-bold text-gray-800" disabled />
+      </div>
+      <div class="md:col-span-2">
+        <label class="label-xs">Tóm tắt bản thân</label>
+        <textarea id="cv_summary" rows="3" class="input-base resize-none" disabled></textarea>
+      </div>
+      <div>
+        <label class="label-xs">Vị trí mong muốn</label>
+        <input id="cv_desiredPosition" type="text" class="input-base" disabled />
+      </div>
+      <div>
+        <label class="label-xs">Mức lương mong muốn</label>
+        <input id="cv_salary" type="text" class="input-base" disabled />
+      </div>
+    </div>
+
+    <!-- KỸ NĂNG -->
+    <div class="mb-5">
+      <div class="flex items-center justify-between mb-2">
+        <label class="label-xs text-blue-700">🛠 Kỹ năng</label>
+      </div>
+      <div id="cv_skillRows" class="space-y-2"></div>
+    </div>
+
+    <!-- HỌC VẤN -->
+    <div class="mb-5">
+      <div class="flex items-center justify-between mb-2">
+        <label class="label-xs text-green-700">🎓 Học vấn</label>
+      </div>
+      <div id="cv_eduRows" class="space-y-2"></div>
+    </div>
+
+    <!-- KINH NGHIỆM -->
+    <div class="mb-5">
+      <div class="flex items-center justify-between mb-2">
+        <label class="label-xs text-orange-700">💼 Kinh nghiệm làm việc</label>
+      </div>
+      <div id="cv_expRows" class="space-y-2"></div>
+    </div>
+
+    <div class="mt-6 pt-4 border-t border-gray-100 text-xs text-gray-400 text-right">
+      Cập nhật lần cuối: <span id="cv_updatedAt"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API = 'http://localhost:5000/api';
+  const urlParams = new URLSearchParams(window.location.search);
+  const appId = urlParams.get('id');
+  const cvId  = urlParams.get('cvId');
+  const token = localStorage.getItem('lc_token');
+
+  const VERIFY_INFO = {
+    unverified:       { label:'Chưa xác minh', cls:'verify-unverified' },
+    pending:          { label:'Đang chờ duyệt', cls:'verify-pending' },
+    pending_admin:    { label:'Chờ Admin duyệt', cls:'verify-pending' },
+    pending_employer: { label:'Chờ Employer duyệt', cls:'verify-pending' },
+    verified:         { label:'Đã xác minh ✓', cls:'verify-verified' },
+    rejected:         { label:'Bị từ chối',  cls:'verify-rejected' },
+  };
+
+  if (!token) window.location.href = 'login.html';
+  if (!appId && !cvId) showError('Không tìm thấy thông tin tham chiếu (id hoặc cvId)');
+
+  async function loadData() {
+    try {
+      if (appId) {
+        // Xem từ phía Employer (thông qua Application ID)
+        const r = await fetch(`${API}/employer/applications?appId=${appId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const d = await r.json();
+        if (!d.success || !d.applications.length) throw new Error(d.message || 'Không tìm thấy dữ liệu');
+
+        const app = d.applications[0];
+        const cp = app.candidate?.candidateProfile || {};
+        const cvList = cp.cvList || [];
+        // Tìm CV tương ứng với ID trong đơn ứng tuyển
+        const cv = cvList.find(c => String(c._id) === String(app.cvId));
+
+        if (!cv) throw new Error('Dữ liệu CV không tồn tại hoặc đã bị xóa');
+        renderCV(cv, app.candidate, cp);
+      } else if (cvId) {
+        // Xem từ phía Candidate (xem CV của chính mình)
+        const [rMe, rCVs] = await Promise.all([
+          fetch(`${API}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } }),
+          fetch(`${API}/candidate/cvs`, { headers: { 'Authorization': `Bearer ${token}` } })
+        ]);
+        const dMe = await rMe.json();
+        const dCVs = await rCVs.json();
+        if (!dMe.success) throw new Error(dMe.message);
+        if (!dCVs.success) throw new Error(dCVs.message);
+
+        const cv = (dCVs.cvList || []).find(c => c._id === cvId);
+        if (!cv) throw new Error('CV không tồn tại hoặc đã bị xóa');
+        renderCV(cv, dMe.user, dMe.user.candidateProfile || {});
+      }
+    } catch (e) { showError(e.message); }
+  }
+
+  function showError(msg) {
+    document.getElementById('loading').classList.add('hidden');
+    document.getElementById('error').classList.remove('hidden');
+    document.getElementById('errorMsg').textContent = msg;
+  }
+
+  function renderCV(cv, user, profile) {
+    document.getElementById('loading').classList.add('hidden');
+    document.getElementById('cvContent').classList.remove('hidden');
+
+    // --- Candidate Header ---
+    if (profile.avatar) document.getElementById('candAvatar').src = profile.avatar;
+    document.getElementById('candName').textContent = profile.fullName || user.email;
+    const addr = [profile.district, profile.province?.name].filter(Boolean).join(', ');
+    document.getElementById('candMeta').innerHTML = [
+      `📧 ${user.email}`,
+      profile.phone ? `📞 ${profile.phone}` : '',
+      addr ? `📍 ${addr}` : ''
+    ].filter(Boolean).join(' &nbsp;·&nbsp; ');
+
+    // --- Basic Fields ---
+    document.getElementById('cv_title').value = cv.title || '';
+    document.getElementById('cv_summary').value = cv.summary || '';
+    document.getElementById('cv_desiredPosition').value = cv.desiredPosition || '';
+    
+    const sal = cv.desiredSalary;
+    document.getElementById('cv_salary').value = (sal && sal.min) 
+      ? `${(sal.min/1e6).toFixed(0)} - ${(sal.max/1e6).toFixed(0)} triệu VND` 
+      : 'Thỏa thuận/Chưa cập nhật';
+
+    document.getElementById('cv_updatedAt').textContent = new Date(cv.updatedAt || cv.createdAt).toLocaleDateString('vi-VN');
+
+    // --- Lists ---
+    // Skills
+    document.getElementById('cv_skillRows').innerHTML = (cv.skills || []).map((s, i) => {
+      const projects = (s.projects || []).join(', ');
+      return `
+      <div class="row-card">
+        <div class="flex items-center gap-2 mb-2"><span class="text-xs font-semibold text-blue-700">Kỹ năng #${i+1}</span></div>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+          <div><label class="label-xs">Tên kỹ năng</label><input type="text" value="${s.name||''}" class="input-base text-xs" disabled /></div>
+          <div><label class="label-xs">Trình độ</label><input type="text" value="${s.level||''}" class="input-base text-xs" disabled /></div>
+          <div><label class="label-xs">Chứng chỉ</label><input type="text" value="${s.certificate||''}" class="input-base text-xs" disabled /></div>
+          <div class="md:col-span-3"><label class="label-xs">Dự án</label><input type="text" value="${projects}" class="input-base text-xs" disabled /></div>
+        </div>
+      </div>`;
+    }).join('') || '<p class="text-xs text-gray-400 italic">Chưa có kỹ năng</p>';
+
+    // Education
+    document.getElementById('cv_eduRows').innerHTML = (cv.education || []).map((e, i) => {
+      const vi = VERIFY_INFO[e.verifyStatus || 'unverified'];
+      const from = e.from ? new Date(e.from).toLocaleDateString('vi-VN') : '';
+      const to = e.to ? new Date(e.to).toLocaleDateString('vi-VN') : 'Hiện tại';
+      return `
+      <div class="row-card">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="text-xs font-semibold text-green-700">Học vấn #${i+1}</span>
+          <span class="status-badge ${vi.cls}">${vi.label}</span>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <div class="md:col-span-2"><label class="label-xs">Trường</label><input type="text" value="${e.school||''}" class="input-base text-xs" disabled /></div>
+          <div><label class="label-xs">Bằng cấp</label><input type="text" value="${e.degree||''}" class="input-base text-xs" disabled /></div>
+          <div><label class="label-xs">Chuyên ngành</label><input type="text" value="${e.major||''}" class="input-base text-xs" disabled /></div>
+          <div><label class="label-xs">GPA</label><input type="text" value="${e.gpa||''}" class="input-base text-xs" disabled /></div>
+          <div><label class="label-xs">Thời gian</label><input type="text" value="${from} - ${to}" class="input-base text-xs" disabled /></div>
+          <div class="md:col-span-4 flex gap-2 flex-wrap mt-1">
+             ${(e.images||[]).map(img => `<img src="${img}" class="h-12 w-16 object-cover rounded border" />`).join('')}
+          </div>
+        </div>
+      </div>`;
+    }).join('') || '<p class="text-xs text-gray-400 italic">Chưa có thông tin học vấn</p>';
+
+    // Experience
+    document.getElementById('cv_expRows').innerHTML = (cv.experience || []).map((e, i) => {
+      const vi = VERIFY_INFO[e.verifyStatus || 'unverified'];
+      const from = e.from ? new Date(e.from).toLocaleDateString('vi-VN') : '';
+      const to = e.to ? new Date(e.to).toLocaleDateString('vi-VN') : 'Hiện tại';
+      return `
+      <div class="row-card">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="text-xs font-semibold text-orange-700">Kinh nghiệm #${i+1}</span>
+          <span class="status-badge ${vi.cls}">${vi.label}</span>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+          <div><label class="label-xs">Công ty</label><input type="text" value="${e.company||''}" class="input-base text-xs" disabled /></div>
+          <div><label class="label-xs">Vị trí</label><input type="text" value="${e.position||''}" class="input-base text-xs" disabled /></div>
+          <div><label class="label-xs">Thời gian</label><input type="text" value="${from} - ${to}" class="input-base text-xs" disabled /></div>
+          <div class="md:col-span-3"><label class="label-xs">Mô tả</label><textarea rows="2" class="input-base text-xs resize-none" disabled>${e.description||''}</textarea></div>
+        </div>
+      </div>`;
+    }).join('') || '<p class="text-xs text-gray-400 italic">Chưa có kinh nghiệm làm việc</p>';
+  }
+
+  loadData();
+</script>
+</body>
+</html>

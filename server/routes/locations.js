@@ -11,6 +11,14 @@ router.get('/', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
+// GET /api/locations/manage — Lấy tất cả tỉnh/thành (Admin only - bao gồm ẩn)
+router.get('/manage', protect, authorize('admin'), async (req, res) => {
+  try {
+    const locations = await Location.find().sort({ order: 1, isActive: -1, name: 1 });
+    res.json({ success: true, locations });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
 // GET /api/locations/:slug/districts — Quận/huyện theo tỉnh (Public)
 router.get('/:slug/districts', async (req, res) => {
   try {
@@ -100,19 +108,6 @@ router.put('/:id/districts/:districtId', protect, authorize('admin'), async (req
     const district = location.districts.id(req.params.districtId);
     res.json({ success: true, message: 'Cập nhật quận/huyện thành công', district });
   } catch (err) { res.status(400).json({ success: false, message: err.message }); }
-});
-
-// DELETE /api/locations/:id/districts/:districtId — Xóa quận/huyện (Admin)
-router.delete('/:id/districts/:districtId', protect, authorize('admin'), async (req, res) => {
-  try {
-    const location = await Location.findByIdAndUpdate(
-      req.params.id,
-      { $pull: { districts: { _id: req.params.districtId } } },
-      { new: true }
-    );
-    if (!location) return res.status(404).json({ success: false, message: 'Không tìm thấy tỉnh/thành' });
-    res.json({ success: true, message: 'Đã xóa quận/huyện' });
-  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
 module.exports = router;
