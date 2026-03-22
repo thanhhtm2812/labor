@@ -72,6 +72,37 @@ router.get('/:id/suggestions', protect, authorize('employer'), async (req, res) 
         details.push(`🛠 Khớp ${matchedSkills} kỹ năng`);
       }
 
+      // Tiêu chí 3: Kinh nghiệm làm việc (Max 30đ)
+      // Tính tổng số năm kinh nghiệm
+      const expList = (cv.experience && cv.experience.length > 0) ? cv.experience : (p.experience || []);
+      let totalYears = 0;
+      expList.forEach(e => {
+        if (e.from) {
+          const start = new Date(e.from);
+          const end   = e.to ? new Date(e.to) : (e.isCurrent ? new Date() : new Date());
+          if (!isNaN(start) && !isNaN(end) && end > start) {
+            totalYears += (end - start) / (1000 * 60 * 60 * 24 * 365.25);
+          }
+        }
+      });
+
+      // Map yêu cầu từ Job
+      const expMap = { 'under-1-year': 0.5, '1-3-years': 1, '3-5-years': 3, 'over-5-years': 5 };
+      const requiredYears = expMap[job.experience] || 0;
+
+      if (requiredYears > 0) {
+        if (totalYears >= requiredYears) {
+          score += 30;
+          details.push(`🏆 Đủ kinh nghiệm (${totalYears.toFixed(1)} năm)`);
+        } else if (totalYears >= requiredYears * 0.5) {
+          score += 15;
+          details.push(`⚠️ Kinh nghiệm gần đạt (${totalYears.toFixed(1)} năm)`);
+        }
+      } else {
+        score += 10; // Không yêu cầu kinh nghiệm -> cộng điểm nền
+        details.push('✅ Phù hợp yêu cầu KN');
+      }
+
       return {
         _id: c._id,
         name: p.fullName || c.email,
