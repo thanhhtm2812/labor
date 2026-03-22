@@ -299,8 +299,12 @@
 
       let location = job.province?.name || '';
       if (job.province?._id && job.district) {
-        const prov = allLocations.find(p => p._id === job.province._id);
-        const dist = prov?.districts?.find(d => d.slug === job.district);
+        // Ưu tiên tìm trong job.province.districts (backend gửi về) -> hỗ trợ cả location bị khóa
+        let dist = job.province.districts?.find(d => d.slug === job.district);
+        if (!dist) {
+          const prov = allLocations.find(p => p._id === job.province._id);
+          dist = prov?.districts?.find(d => d.slug === job.district);
+        }
         if (dist) location = `${dist.name}, ${job.province.name}`;
       }
 
