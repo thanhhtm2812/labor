@@ -255,8 +255,12 @@
         ? `${(job.salary.min/1e6).toFixed(0)}–${(job.salary.max/1e6).toFixed(0)} triệu`
         : 'Liên hệ';
 
-    const loc = [job.district, job.province?.name].filter(Boolean).join(', ');
-    document.getElementById('locationDisplay').textContent = loc || '—';
+    let location = job.province?.name || '—';
+    if (job.province?.districts && job.district) {
+      const dist = job.province.districts.find(d => d.slug === job.district);
+      if (dist) location = `${dist.name}, ${job.province.name}`;
+    }
+    document.getElementById('locationDisplay').textContent = location;
     document.getElementById('expDisplay').textContent = EXP_MAP[job.experience] || '—';
 
     // Rich text content
@@ -272,7 +276,7 @@
 
     // Thông tin nhanh
     const infoItems = [
-      { icon: '📍', label: 'Địa điểm',      value: job.province?.name || '—' },
+      { icon: '📍', label: 'Địa điểm',      value: location },
       { icon: '💼', label: 'Hình thức',     value: (job.workTypes||[]).map(w=>w.name).join(', ') || '—' },
       { icon: '🎓', label: 'Học vấn',       value: EDU_MAP[job.education] || '—' },
       { icon: '👥', label: 'Số lượng',      value: `${job.positions || 1} người` },
