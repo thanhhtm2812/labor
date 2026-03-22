@@ -57,7 +57,7 @@ router.get('/', async (req, res) => {
     const total = await Job.countDocuments(filter);
     const jobs  = await Job.find(filter)
       .populate('employer',  'employerProfile.companyName employerProfile.logo')
-      .populate('province',  'name slug')
+      .populate('province',  'name slug districts')
       .populate('workTypes', 'name slug icon')
       .sort(sort).skip(skip).limit(Number(limit)).lean();
 
@@ -72,7 +72,7 @@ router.get('/:id', async (req, res) => {
   try {
     const job = await Job.findOne({ _id: req.params.id, status: 'approved' })
       .populate('employer',  'employerProfile email createdAt')
-      .populate('province',  'name slug')
+      .populate('province',  'name slug districts')
       .populate('workTypes', 'name slug icon');
     if (!job) return res.status(404).json({ success: false, message: 'Không tìm thấy tin tuyển dụng' });
     await Job.findByIdAndUpdate(req.params.id, { $inc: { viewCount: 1 } });
