@@ -2,6 +2,7 @@ const express = require('express');
 const router  = express.Router();
 const Job     = require('../models/Job');
 const Application = require('../models/Application');
+const User    = require('../models/User'); // Import User model để tìm ứng viên
 const { protect, authorize } = require('../middleware/auth');
 const { uploadImage, uploadToCloudinary } = require('../middleware/upload');
 
@@ -18,6 +19,73 @@ router.get('/employer/my-jobs', protect, authorize('employer'), async (req, res)
       .populate('workTypes', 'name slug icon')
       .sort('-createdAt');
     res.json({ success: true, jobs });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// GET /api/jobs/:id/suggestions — Gợi ý ứng viên phù hợp (Smart Match)
+router.get('/:id/suggestions', protect, authorize('employer'), async (req, res) => {
+  try {
+    const job = await Job.findOne({ _id: req.params.id, employer: req.user._id });
+    if (!job) return res.status(404).json({ success: false, message: 'Tin không tồn tại' });
+
+    // 1. Lấy tất cả ứng viên có CV công khai
+    // (Trong thực tế nên dùng ElasticSearch hoặc query filter bớt để tối ưu hiệu năng)
+    const candidates = await User.find({
+      role: 'candidate',
+      isActive: true,
+      'candidateProfile.cvList.isPublic': true
+    })
+    .select('email candidateProfile')
+    .lean();
+
+    // 2. Thuật toán chấm điểm Match Score
+    const jobText = (job.title + ' ' + job.description + ' ' + job.requirements).toLowerCase();
+    
+    const scoredCandidates = candidates.map(c => {
+      const p = c.candidateProfile || {};
+      // Lấy CV công khai mới nhất để so sánh
+      const cv = (p.cvList || []).find(cv => cv.isPublic) || {};
+      let score = 0;
+      const details = [];
+
+      // Tiêu chí 1: Địa điểm (Max 30đ)
+      if (job.province && p.province && job.province.toString() === p.province.toString()) {
+        score += 20;
+        if (job.district && p.district === job.district) {
+          score += 10;
+          details.push('🎯 Cùng khu vực');
+        } else details.push('✅ Cùng tỉnh/thành');
+      }
+
+      // Tiêu chí 2: Kỹ năng (Max 40đ)
+      const skills = cv.skills || [];
+      let matchedSkills = 0;
+      skills.forEach(s => {
+        const sName = (typeof s === 'object' ? s.name : s).toLowerCase();
+        if (jobText.includes(sName)) matchedSkills++;
+      });
+      if (matchedSkills > 0) {
+        const sScore = Math.min(matchedSkills * 10, 40);
+        score += sScore;
+        details.push(`🛠 Khớp ${matchedSkills} kỹ năng`);
+      }
+
+      return {
+        _id: c._id,
+        name: p.fullName || c.email,
+        avatar: p.avatar,
+        matchScore: score,
+        matchDetails: details,
+        jobTitle: cv.title // Tiêu đề CV để tham khảo
+      };
+    }).filter(c => c.matchScore >= 20); // Chỉ lấy những người có điểm > 20
+
+    // 3. Sắp xếp điểm cao xuống thấp và lấy Top 10
+    scoredCandidates.sort((a, b) => b.matchScore - a.matchScore);
+    
+    res.json({ success: true, candidates: scoredCandidates.slice(0, 10) });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
