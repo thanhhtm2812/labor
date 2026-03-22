@@ -138,7 +138,11 @@ router.post('/employer/invite', protect, authorize('employer'), async (req, res)
 router.get('/employer/invitations', protect, authorize('employer'), async (req, res) => {
   try {
     const invites = await Invitation.find({ employer: req.user._id })
-      .populate('candidate', 'email candidateProfile.fullName candidateProfile.avatar candidateProfile.phone')
+      .populate({
+        path: 'candidate',
+        select: 'email candidateProfile.fullName candidateProfile.avatar candidateProfile.phone candidateProfile.province candidateProfile.district',
+        populate: { path: 'candidateProfile.province', select: 'name slug districts' }
+      })
       .populate('job', 'title status')
       .sort('-createdAt');
     res.json({ success: true, invitations: invites });
@@ -399,7 +403,7 @@ router.get('/employer/:id', async (req, res) => {
   try {
     const employer = await User.findOne({ _id: req.params.id, role: 'employer', isActive: true })
       .select('employerProfile email createdAt')
-      .populate('employerProfile.province', 'name slug');
+      .populate('employerProfile.province', 'name slug districts');
     if (!employer) return res.status(404).json({ success: false, message: 'Không tìm thấy công ty' });
     const profile = employer.toObject().employerProfile || {};
     if (profile.videoUrl) {
@@ -417,7 +421,7 @@ router.get('/employer/:id', async (req, res) => {
 router.put('/candidate/profile', protect, authorize('candidate'), async (req, res) => {
   try {
     const allowed = ['fullName','phone','dateOfBirth','gender','bio','skills',
-      'education','experience','province','district','desiredWorkTypes','desiredSalary','resumeUrl'];
+      'education','experience','province','district','desiredWorkTypes','desiredSalary','address'];
     const update = {};
     allowed.forEach(f => { if (req.body[f] !== undefined) update[`candidateProfile.${f}`] = req.body[f]; });
     const user = await User.findByIdAndUpdate(req.user._id, { $set: update }, { new: true, runValidators: true })
@@ -521,6 +525,47 @@ router.put('/candidate/cvs/:cvId', protect, authorize('candidate'), async (req, 
   } catch (err) { res.status(400).json({ success: false, message: err.message }); }
 });
 
+router.post('/candidate/cvs/:cvId/duplicate', protect, authorize('candidate'), async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    const originalCv = user.candidateProfile.cvList.id(req.params.cvId);
+    
+    if (!originalCv) return res.status(404).json({ success: false, message: 'CV không tồn tại' });
+
+    // FIX: Tự động loại bỏ các kỹ năng rác (không có tên) trong profile chính để tránh lỗi validation khi save()
+    if (user.candidateProfile && user.candidateProfile.skills && user.candidateProfile.skills.length > 0) {
+      // Chỉ giữ lại các skill có trường name
+      user.candidateProfile.skills = user.candidateProfile.skills.filter(s => s.name && s.name.trim());
+    }
+
+    const cvData = originalCv.toObject();
+    delete cvData._id;
+    cvData.title = `${cvData.title} (Bản sao)`;
+    cvData.isPublic = false; // Mặc định riêng tư cho bản sao
+    cvData.createdAt = new Date();
+    cvData.updatedAt = new Date();
+
+    // Hàm reset ID và trạng thái xác minh cho các mục con (học vấn, kinh nghiệm...)
+    const resetSubItems = (items) => {
+      if (!items || !Array.isArray(items)) return [];
+      return items.map(item => {
+        const newItem = { ...item };
+        delete newItem._id;
+        // Giữ nguyên trạng thái xác minh (verified, rejected, pending...) cho CV mới
+        return newItem;
+      });
+    };
+
+    if (cvData.education) cvData.education = resetSubItems(cvData.education);
+    if (cvData.experience) cvData.experience = resetSubItems(cvData.experience);
+    if (cvData.skills) cvData.skills = resetSubItems(cvData.skills);
+
+    user.candidateProfile.cvList.push(cvData);
+    await user.save();
+    res.json({ success: true, message: 'Nhân bản CV thành công' });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
 router.delete('/candidate/cvs/:cvId', protect, authorize('candidate'), async (req, res) => {
   try {
     await User.findByIdAndUpdate(req.user._id,
@@ -610,7 +655,7 @@ router.get('/candidate/saved-jobs', protect, authorize('candidate'), async (req,
         path: 'savedJobs',
         match: { _id: { $exists: true } },
         populate: [
-          { path: 'province',  select: 'name slug' },
+          { path: 'province',  select: 'name slug districts' },
           { path: 'workTypes', select: 'name slug icon' },
           { path: 'employer',  select: 'employerProfile.companyName employerProfile.logo' }
         ]
@@ -648,9 +693,9 @@ router.get('/candidate/applications', protect, authorize('candidate'), async (re
     const apps  = await Application.find(filter)
       .populate({
         path: 'job',
-        select: 'title salary province workTypes employer status',
+        select: 'title salary province district workTypes employer status',
         populate: [
-          { path: 'province',  select: 'name' },
+          { path: 'province',  select: 'name districts' },
           { path: 'workTypes', select: 'name icon' },
           { path: 'employer',  select: 'employerProfile.companyName employerProfile.logo' }
         ]
@@ -666,8 +711,8 @@ router.get('/candidate/invitations', protect, authorize('candidate'), async (req
     const invites = await Invitation.find({ candidate: req.user._id })
       .populate({
         path: 'job',
-        select: 'title salary province slug status',
-        populate: { path: 'province', select: 'name' }
+        select: 'title salary province district slug status',
+        populate: { path: 'province', select: 'name districts' }
       })
       .populate('employer', 'employerProfile.companyName employerProfile.logo')
       .sort('-createdAt');
@@ -696,7 +741,11 @@ router.put('/candidate/invitations/:id/respond', protect, authorize('candidate')
 router.get('/candidate/followed-companies', protect, authorize('candidate'), async (req, res) => {
   try {
     const user = await User.findById(req.user._id)
-      .populate('followedCompanies', 'employerProfile.companyName employerProfile.logo employerProfile.industry employerProfile.province email');
+      .populate({
+        path: 'followedCompanies',
+        select: 'employerProfile.companyName employerProfile.logo employerProfile.industry employerProfile.province employerProfile.district email',
+        populate: { path: 'employerProfile.province', select: 'name slug districts' }
+      });
     res.json({ success: true, followedCompanies: user.followedCompanies || [] });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
@@ -722,8 +771,8 @@ router.delete('/candidate/followed-companies/:employerId', protect, authorize('c
 router.get('/candidate/:id', protect, authorize('employer'), async (req, res) => {
   try {
     const candidate = await User.findOne({ _id: req.params.id, role: 'candidate', isActive: true })
-      .select('email candidateProfile.fullName candidateProfile.avatar candidateProfile.bio candidateProfile.province candidateProfile.district candidateProfile.phone candidateProfile.gender candidateProfile.dateOfBirth candidateProfile.resumeUrl candidateProfile.skills candidateProfile.cvList')
-      .populate('candidateProfile.province', 'name slug')
+      .select('email candidateProfile.fullName candidateProfile.avatar candidateProfile.bio candidateProfile.province candidateProfile.district candidateProfile.phone candidateProfile.gender candidateProfile.dateOfBirth candidateProfile.skills candidateProfile.cvList')
+      .populate('candidateProfile.province', 'name slug districts')
       .lean();
 
     if (!candidate) {

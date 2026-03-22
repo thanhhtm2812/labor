@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const morgan = require('morgan');
 const path = require('path');
+const fs = require('fs');
 
 // ==========================================
 // KIỂM TRA BIẾN MÔI TRƯỜNG
@@ -35,6 +36,12 @@ app.use(morgan('dev'));
 // Phục vụ file tĩnh (ảnh upload nội bộ nếu không dùng Cloudinary)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// Tạo thư mục upload template nếu chưa tồn tại
+const templateDir = path.join(__dirname, 'upload', 'templates');
+if (!fs.existsSync(templateDir)) {
+  fs.mkdirSync(templateDir, { recursive: true });
+}
+
 // ==========================================
 // KẾT NỐI MONGODB
 // ==========================================
@@ -59,6 +66,7 @@ app.use('/api/worktypes', require('./routes/workTypes'));
 // Admin verification routes — mount TRƯỚC /api/admin để không bị admin router bắt mất
 const { adminVerifyRouter } = require('./routes/users');
 app.use('/api/admin/verifications', adminVerifyRouter);
+app.use('/api/templates', require('./routes/templates')); // Route quản lý Template
 app.use('/api/admin',     require('./routes/admin'));
 
 // Root route
@@ -187,7 +195,7 @@ async function seedInitialData() {
           phone:       '0901234567',
           gender:      'male',
           bio:         'Lập trình viên với 2 năm kinh nghiệm, đam mê công nghệ web.',
-          skills:      ['JavaScript', 'Node.js', 'React', 'MongoDB'],
+          skills:      [{name: 'JavaScript'}, {name: 'Node.js'}, {name: 'React'}, {name: 'MongoDB'}],
           province:    hcm?._id,
           district:    'quan-1',
           desiredSalary: { min: 15000000, max: 25000000, currency: 'VND' },

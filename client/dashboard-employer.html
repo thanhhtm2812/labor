@@ -54,9 +54,9 @@
       <button onclick="switchSection('my-jobs')"       class="sidebar-link w-full text-left" id="nav-my-jobs">📋 Quản lý tin</button>
       <button onclick="switchSection('candidates')"    class="sidebar-link w-full text-left" id="nav-candidates">👥 Hồ sơ ứng tuyển</button>
       <button onclick="switchSection('invitations')"   class="sidebar-link w-full text-left" id="nav-invitations">💌 Lịch sử lời mời</button>
-      <button onclick="switchSection('verify-exp')"    class="sidebar-link w-full text-left" id="nav-verify-exp">🔍 Xác minh kinh nghiệm</button>
+      <button onclick="switchSection('verify-exp')"    class="sidebar-link w-full text-left" id="nav-verify-exp">📖 Xác minh kinh nghiệm</button>
       <button onclick="switchSection('search-cvs')"    class="sidebar-link w-full text-left" id="nav-search-cvs">🔎 Tìm CV ứng viên</button>
-      <a href="walkin-candidates.html" class="sidebar-link w-full text-left text-blue-700 bg-blue-50 mt-4 border border-blue-100 hover:bg-blue-100">⚡ Quản lý Walk-in</a>
+      <button><a href="walkin-candidates.html" class="sidebar-link w-full text-left" >⚡ Ứng viên vãng lai</a></button>
     </nav>
 
     <div class="p-3 border-t border-gray-100">
@@ -878,11 +878,9 @@
 
     let location = job.province?.name || '—';
     if (job.province?._id && job.district) {
-      const prov = allLocations.find(l => l._id === job.province._id);
-      if (prov) {
-        const dist = prov.districts?.find(d => d.slug === job.district);
-        if (dist) location = `${dist.name}, ${job.province.name}`;
-      }
+      const districts = job.province.districts || (allLocations.find(l => l._id === job.province._id)?.districts) || [];
+      const dist = districts.find(d => d.slug === job.district);
+      if (dist) location = `${dist.name}, ${job.province.name}`;
     }
 
     return `
@@ -1434,6 +1432,14 @@
         const c = inv.candidate || {};
         const cp = c.candidateProfile || {};
         const avatar = cp.avatar || 'https://ui-avatars.com/api/?name=UV';
+        
+        // Xử lý hiển thị địa chỉ
+        let location = '';
+        if (cp.province) {
+          const districts = cp.province.districts || [];
+          const dist = districts.find(d => d.slug === cp.district);
+          location = dist ? `${dist.name}, ${cp.province.name}` : cp.province.name;
+        }
 
         const history = (inv.responseHistory || []).sort((a, b) => new Date(a.respondedAt) - new Date(b.respondedAt));
         const historyHtml = history.length > 0 ?
@@ -1460,7 +1466,7 @@
             </div></details>`
           : (inv.candidateMessage ? `<div class="mt-3 p-3 rounded-lg border ${inv.status === 'accepted' ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'}"><p class="text-xs font-semibold ${inv.status === 'accepted' ? 'text-green-800' : 'text-red-800'} mb-1">💬 Phản hồi từ ứng viên:</p><p class="text-xs text-gray-600 italic">"${inv.candidateMessage}"</p></div>` : '');
 
-        return `<div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5"><div class="flex items-start gap-4"><img src="${avatar}" class="w-12 h-12 rounded-xl object-cover border border-gray-100" /><div class="flex-1 min-w-0"><div class="flex items-center gap-2 mb-1"><span class="status-badge ${st.cls}">${st.label}</span><span class="text-xs text-gray-400">📅 ${new Date(inv.createdAt).toLocaleDateString('vi-VN')}</span></div><p class="font-bold text-gray-800 text-lg">${cp.fullName || c.email || 'Ứng viên'}</p><p class="text-sm text-gray-600">Mời vào vị trí: <strong>${inv.job?.title || 'Tin đã xóa'}</strong></p><p class="text-xs text-gray-500 mt-2 bg-gray-50 p-2 rounded-lg italic">"${inv.message || 'Không có lời nhắn'}"</p>${historyHtml}</div><a href="candidate-profile.html?id=${c._id}" target="_blank" class="text-xs border border-blue-200 text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-50 h-fit">Xem hồ sơ</a></div></div>`;
+        return `<div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5"><div class="flex items-start gap-4"><img src="${avatar}" class="w-12 h-12 rounded-xl object-cover border border-gray-100" /><div class="flex-1 min-w-0"><div class="flex items-center gap-2 mb-1"><span class="status-badge ${st.cls}">${st.label}</span><span class="text-xs text-gray-400">📅 ${new Date(inv.createdAt).toLocaleDateString('vi-VN')}</span></div><p class="font-bold text-gray-800 text-lg">${cp.fullName || c.email || 'Ứng viên'}</p>${location ? `<p class="text-xs text-gray-500 mb-1">📍 ${location}</p>` : ''}<p class="text-sm text-gray-600">Mời vào vị trí: <strong>${inv.job?.title || 'Tin đã xóa'}</strong></p><p class="text-xs text-gray-500 mt-2 bg-gray-50 p-2 rounded-lg italic">"${inv.message || 'Không có lời nhắn'}"</p>${historyHtml}</div><a href="candidate-profile.html?id=${c._id}" target="_blank" class="text-xs border border-blue-200 text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-50 h-fit">Xem hồ sơ</a></div></div>`;
       }).join('');
     } catch (e) {
       container.innerHTML = `<p class="text-red-400 text-sm">❌ ${e.message}</p>`;

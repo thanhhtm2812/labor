@@ -21,7 +21,12 @@
 <nav class="bg-white shadow-sm sticky top-0 z-50">
   <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
     <a href="index.html" class="font-extrabold text-xl text-blue-800">Labor<span class="text-orange-500">Connect</span></a>
-    <a href="index.html" class="text-sm text-blue-700 hover:underline">← Tất cả việc làm</a>
+    <div class="flex items-center gap-4">
+      <div id="navAuth" class="flex items-center gap-3">
+        <a href="login.html" class="text-sm font-medium text-gray-600 hover:text-blue-700">Đăng nhập</a>
+        <a href="register.html" class="text-sm font-medium bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600">Đăng ký</a>
+      </div>
+    </div>
   </div>
 </nav>
 
@@ -206,6 +211,31 @@
     'university':   'Đại học',
     'postgraduate': 'Sau đại học'
   };
+
+  // ==========================================
+  // CHECK AUTH NAV
+  // ==========================================
+  function checkAuthNav() {
+    const token = localStorage.getItem('lc_token');
+    const user = JSON.parse(localStorage.getItem('lc_user') || 'null');
+    if (token && user) {
+      let dashUrl = '#';
+      if (user.role === 'admin') dashUrl = 'admin.html';
+      if (user.role === 'employer') dashUrl = 'dashboard-employer.html';
+      if (user.role === 'candidate') dashUrl = 'dashboard-candidate.html';
+
+      document.getElementById('navAuth').innerHTML = `
+        <span class="text-sm text-gray-600">Xin chào, <a href="${dashUrl}" class="font-bold hover:underline">${user.displayName || user.email}</a></span>
+        <button onclick="logout()" class="text-sm text-red-500 hover:underline ml-2">Đăng xuất</button>
+      `;
+    }
+  }
+
+  function logout() {
+    localStorage.removeItem('lc_token');
+    localStorage.removeItem('lc_user');
+    window.location.reload();
+  }
 
   async function loadJob() {
     if (!jobId) { showError(); return; }
@@ -538,6 +568,7 @@
     } catch (e) {}
   }
 
+  checkAuthNav();
   loadJob().then(() => { checkSavedStatus(); checkApplicationStatus(); });
 </script>
 </body>

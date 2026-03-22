@@ -25,7 +25,10 @@
   <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
     <a href="index.html" class="font-extrabold text-xl text-blue-800">Labor<span class="text-orange-500">Connect</span></a>
     <div id="navAuth">
-      <a href="dashboard-employer.html" class="text-sm text-blue-700 hover:underline">← Về Dashboard</a>
+      <div class="flex items-center gap-3">
+        <a href="login.html" class="text-sm font-medium text-gray-600 hover:text-blue-700">Đăng nhập</a>
+        <a href="register.html" class="text-sm font-medium bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600">Đăng ký</a>
+      </div>
     </div>
   </div>
 </nav>
@@ -126,6 +129,30 @@
 
   function authHeader() { return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }; }
 
+  // ==========================================
+  // CHECK AUTH NAV
+  // ==========================================
+  function checkAuthNav() {
+    const user = JSON.parse(localStorage.getItem('lc_user') || 'null');
+    if (token && user) {
+      let dashUrl = '#';
+      if (user.role === 'admin') dashUrl = 'admin.html';
+      if (user.role === 'employer') dashUrl = 'dashboard-employer.html';
+      if (user.role === 'candidate') dashUrl = 'dashboard-candidate.html';
+
+      document.getElementById('navAuth').innerHTML = `
+        <span class="text-sm text-gray-600">Xin chào, <a href="${dashUrl}" class="font-bold hover:underline">${user.displayName || user.email}</a></span>
+        <button onclick="logout()" class="text-sm text-red-500 hover:underline ml-2">Đăng xuất</button>
+      `;
+    }
+  }
+
+  function logout() {
+    localStorage.removeItem('lc_token');
+    localStorage.removeItem('lc_user');
+    window.location.href = 'index.html';
+  }
+
   function switchTab(tab) {
     ['cvs', 'info'].forEach(t => {
       const isTarget = t === tab;
@@ -171,8 +198,15 @@
     document.getElementById('candName').textContent = p.fullName || candidate.email;
     document.getElementById('candBio').textContent = p.bio || 'Ứng viên chưa cập nhật giới thiệu.';
 
+    let districtName = '';
+    if (p.province && p.province.districts && p.district) {
+      const dist = p.province.districts.find(d => d.slug === p.district);
+      if (dist) districtName = dist.name;
+    }
+    const fullLocation = [districtName, p.province?.name].filter(Boolean).join(', ');
+
     const metaItems = [
-      p.province?.name && `<span>📍 ${p.province.name}</span>`,
+      fullLocation && `<span>📍 ${fullLocation}</span>`,
       candidate.email && `<span>📧 ${candidate.email}</span>`,
     ].filter(Boolean);
     document.getElementById('candMeta').innerHTML = metaItems.join('<span class="mx-1 text-gray-300">|</span>');
@@ -199,10 +233,7 @@
           <div><p class="text-xs text-gray-500 uppercase font-semibold mb-1">Điện thoại</p><p class="font-medium text-gray-900">${p.phone || '—'}</p></div>
           <div><p class="text-xs text-gray-500 uppercase font-semibold mb-1">Giới tính</p><p class="font-medium text-gray-900">${genderMap[p.gender] || '—'}</p></div>
           <div><p class="text-xs text-gray-500 uppercase font-semibold mb-1">Ngày sinh</p><p class="font-medium text-gray-900">${dob}</p></div>
-          <div><p class="text-xs text-gray-500 uppercase font-semibold mb-1">Địa chỉ</p><p class="font-medium text-gray-900">${p.district ? p.district + ', ' : ''}${p.province?.name || '—'}</p></div>
-          <div><p class="text-xs text-gray-500 uppercase font-semibold mb-1">CV / Resume đính kèm</p>
-            ${p.resumeUrl ? `<a href="${p.resumeUrl}" target="_blank" class="text-blue-600 hover:underline break-all font-medium">📎 Xem Resume đính kèm</a>` : '<span class="text-gray-400">Chưa cập nhật</span>'}
-          </div>
+          <div><p class="text-xs text-gray-500 uppercase font-semibold mb-1">Địa chỉ</p><p class="font-medium text-gray-900">${fullLocation || '—'}</p></div>
         </div>
       </div>`;
   }
@@ -324,6 +355,7 @@
     }
   }
 
+  checkAuthNav();
   loadCandidateProfile();
 </script>
 </body>

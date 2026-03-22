@@ -132,7 +132,7 @@
             </div>
             <div class="md:col-span-2"><label class="label-xs">Giới thiệu bản thân</label>
               <textarea id="pf_bio" rows="3" class="input-base resize-none"></textarea></div>
-            <div><label class="label-xs">Link CV / Resume</label><input id="pf_resumeUrl" type="url" class="input-base" /></div>
+            <div class="md:col-span-2"><label class="label-xs">Địa chỉ thường trú</label><input id="pf_address" type="text" class="input-base" /></div>
             <div class="md:col-span-2 mt-1">
               <label class="label-xs mb-2">Danh sách Kỹ năng (Từ các CV đã tạo)</label>
               <div id="pf_skills_list" class="flex flex-wrap gap-2 p-3 bg-gray-50 rounded-xl border border-gray-100 min-h-[50px] items-center"></div>
@@ -147,7 +147,7 @@
     <div id="section-cvs" class="section">
       <div class="flex items-center justify-between mb-6">
         <h1 class="text-2xl font-extrabold text-gray-800">Quản lý CV</h1>
-        <button onclick="showCvForm()" class="bg-orange-500 hover:bg-orange-600 text-white font-semibold px-5 py-2.5 rounded-xl text-sm">+ Tạo CV mới</button>
+        <button id="btnAddCV" onclick="showCvForm()" class="bg-orange-500 hover:bg-orange-600 text-white font-semibold px-5 py-2.5 rounded-xl text-sm">+ Tạo CV mới</button>
       </div>
 
       <!-- FORM TẠO/SỬA CV -->
@@ -342,7 +342,7 @@ async function loadProfile() {
   document.getElementById('pf_fullName').value  = p.fullName   || '';
   document.getElementById('pf_phone').value     = p.phone      || '';
   document.getElementById('pf_bio').value       = p.bio        || '';
-  document.getElementById('pf_resumeUrl').value = p.resumeUrl  || '';
+  document.getElementById('pf_address').value   = p.address    || '';
   if (p.gender) document.getElementById('pf_gender').value = p.gender;
   if (p.dateOfBirth) document.getElementById('pf_dob').value = p.dateOfBirth.slice(0,10);
   if (p.province?._id) {
@@ -374,7 +374,7 @@ async function saveProfile() {
     gender: document.getElementById('pf_gender').value,
     dateOfBirth: document.getElementById('pf_dob').value || undefined,
     bio: document.getElementById('pf_bio').value.trim(),
-    resumeUrl: document.getElementById('pf_resumeUrl').value.trim(),
+    address: document.getElementById('pf_address').value.trim(),
     province: document.getElementById('pf_province').value || undefined,
     district: document.getElementById('pf_district').value || undefined,
   };
@@ -444,6 +444,14 @@ async function loadCVs() {
   const r = await fetch(`${API}/candidate/cvs`, { headers: authH() });
   const d = await r.json();
   myCVs = d.cvList || [];
+
+  // Ẩn nút tạo mới nếu đã có CV
+  const btnAdd = document.getElementById('btnAddCV');
+  if (btnAdd) {
+    if (myCVs.length > 0) btnAdd.classList.add('hidden');
+    else btnAdd.classList.remove('hidden');
+  }
+
   const list = myCVs;
   const container = document.getElementById('cvList');
   if (!list.length) {
@@ -478,7 +486,8 @@ async function loadCVs() {
           : `<button onclick="editCV('${cv._id}')" class="flex-1 text-xs border border-blue-200 text-blue-700 py-1.5 rounded-lg hover:bg-blue-50">✏️ Sửa</button>`
         }
         ${!cv.isPublic ? `<button onclick="setCvPublic('${cv._id}')" class="flex-1 text-xs border border-green-200 text-green-700 py-1.5 rounded-lg hover:bg-green-50">🌐 Công khai</button>` : ''}
-        <button onclick="deleteCV('${cv._id}')" class="flex-1 text-xs border border-red-200 text-red-500 py-1.5 rounded-lg hover:bg-red-50" ${isUsed ? 'disabled title="Đã nộp ứng tuyển"' : ''}>🗑 Xóa</button>
+        <button onclick="duplicateCV('${cv._id}')" class="flex-1 text-xs border border-purple-200 text-purple-700 py-1.5 rounded-lg hover:bg-purple-50">📑 Nhân bản</button>
+        ${!isUsed ? `<button onclick="deleteCV('${cv._id}')" class="flex-1 text-xs border border-red-200 text-red-500 py-1.5 rounded-lg hover:bg-red-50">🗑 Xóa</button>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -745,6 +754,16 @@ async function setCvPublic(cvId) {
   } catch (e) { showAlert('Lỗi kết nối', 'error'); }
 }
 
+async function duplicateCV(cvId) {
+  if (!confirm('Bạn muốn nhân bản CV này?')) return;
+  try {
+    const r = await fetch(`${API}/candidate/cvs/${cvId}/duplicate`, { method:'POST', headers: authH() });
+    const d = await r.json();
+    if (d.success) { showAlert('✅ ' + d.message); loadCVs(); }
+    else showAlert(d.message, 'error');
+  } catch (e) { showAlert('Lỗi kết nối', 'error'); }
+}
+
 async function editCV(cvId) {
   const r = await fetch(`${API}/candidate/cvs`, { headers: authH() });
   const d = await r.json();
@@ -788,11 +807,19 @@ async function loadApplications() {
     const company = app.job?.employer?.employerProfile?.companyName || '—';
     const salary = app.job?.salary?.isNegotiate ? 'Thỏa thuận' :
       app.job?.salary?.min ? `${(app.job.salary.min/1e6).toFixed(0)}–${(app.job.salary.max/1e6).toFixed(0)} triệu` : '—';
+
+    let location = app.job?.province?.name || '—';
+    if (app.job?.province?.districts && app.job?.district) {
+      const dist = app.job.province.districts.find(d => d.slug === app.job.district);
+      if (dist) location = `${dist.name}, ${app.job.province.name}`;
+    }
+
     return `<div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-center gap-4">
       <img src="${logo}" class="w-12 h-12 rounded-xl object-cover border border-gray-100 flex-shrink-0" />
       <div class="min-w-0 flex-1">
         <p class="font-semibold text-gray-800 truncate">${app.job?.title || '—'}</p>
         <p class="text-xs text-gray-500 mt-0.5">${company} · 💰 ${salary}</p>
+        <p class="text-xs text-gray-500 mt-0.5">📍 ${location}</p>
         <p class="text-xs text-gray-400 mt-0.5">Nộp: ${new Date(app.createdAt).toLocaleDateString('vi-VN')}</p>
         ${app.employerNote ? `<p class="text-xs text-orange-600 mt-1">📝 ${app.employerNote}</p>` : ''}
       </div>
@@ -822,8 +849,9 @@ async function loadSavedJobs() {
       
       let location = job.province?.name || '—';
       if (job.province?._id && job.district) {
-        const prov = allLocations.find(p => p._id === job.province._id);
-        const dist = prov?.districts?.find(d => d.slug === job.district);
+        // Ưu tiên dùng districts từ job.province (do backend gửi) hoặc fallback sang allLocations
+        const districts = job.province.districts || allLocations.find(p => p._id === job.province._id)?.districts;
+        const dist = districts?.find(d => d.slug === job.district);
         if (dist) location = `${dist.name}, ${job.province.name}`;
       }
 
@@ -868,11 +896,19 @@ async function loadFollowed() {
   container.innerHTML = companies.map(c => {
     const p = c.employerProfile || {};
     const logo = p.logo || 'https://ui-avatars.com/api/?name=Co';
+
+    let location = p.province?.name || '—';
+    if (p.province?.districts && p.district) {
+      const dist = p.province.districts.find(d => d.slug === p.district);
+      if (dist) location = `${dist.name}, ${p.province.name}`;
+    }
+
     return `<div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-3 text-center">
       <img src="${logo}" class="w-16 h-16 rounded-2xl object-cover border border-gray-100 mx-auto" />
       <div>
         <p class="font-bold text-gray-800 text-sm">${p.companyName||'—'}</p>
         ${p.industry ? `<p class="text-xs text-gray-400 mt-0.5">${p.industry}</p>` : ''}
+        <p class="text-xs text-gray-500 mt-1">📍 ${location}</p>
       </div>
       <div class="flex gap-2">
         <a href="company-profile.html?id=${c._id}" class="flex-1 text-xs border border-blue-200 text-blue-700 py-1.5 rounded-lg hover:bg-blue-50">Xem</a>
@@ -910,6 +946,12 @@ async function loadInvitations() {
       const isRejected = inv.status === 'rejected';
       const isAccepted = inv.status === 'accepted';
 
+      let location = job.province?.name || '—';
+      if (job.province?.districts && job.district) {
+        const dist = job.province.districts.find(d => d.slug === job.district);
+        if (dist) location = `${dist.name}, ${job.province.name}`;
+      }
+
       return `<div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 ${isRejected ? 'opacity-60 bg-gray-50' : ''}">
         <div class="flex items-start gap-4">
           <img src="${logo}" class="w-12 h-12 rounded-xl object-cover border border-gray-100 flex-shrink-0" />
@@ -920,6 +962,7 @@ async function loadInvitations() {
               ${isRejected ? `<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold">❌ Đã từ chối</span>` : ''}
             </div>
             <h3 class="font-bold text-gray-800 text-lg">${job.title || 'Công việc không còn tồn tại'}</h3>
+            <p class="text-xs text-gray-500 mb-1">📍 ${location}</p>
             <p class="text-sm text-gray-600 mt-2 bg-blue-50 p-3 rounded-lg italic">"${inv.message || 'Không có lời nhắn'}"</p>
             
             ${(() => {

@@ -90,7 +90,7 @@ const candidateProfileSchema = new mongoose.Schema({
   district:         { type: String },
   desiredWorkTypes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'WorkType' }],
   desiredSalary:    { min: Number, max: Number, currency: { type: String, default: 'VND' } },
-  resumeUrl:        { type: String },
+  address:          { type: String },
   cvList:           [cvSchema],
 }, { _id: false });
 

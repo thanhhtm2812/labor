@@ -6,6 +6,9 @@
   <title>Chi tiết CV — LaborConnect</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <!-- Thư viện hỗ trợ xem trước Docx -->
+  <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+  <script src="https://unpkg.com/docx-preview/dist/docx-preview.min.js"></script>
   <style>
     * { font-family: 'Be Vietnam Pro', sans-serif; }
     .input-base { width:100%;border:1px solid #e5e7eb;border-radius:10px;padding:9px 13px;font-size:.875rem;background-color:#f9fafb;color:#374151; }
@@ -31,7 +34,7 @@
 <!-- Top Bar -->
 <div class="max-w-4xl mx-auto mb-6 flex items-center justify-between px-4 no-print">
   <a href="dashboard-employer.html" class="text-sm font-medium text-gray-600 hover:text-blue-800 flex items-center gap-1">← Quay lại Dashboard</a>
-  <button onclick="window.print()" class="bg-blue-800 hover:bg-blue-900 text-white text-sm font-bold px-5 py-2 rounded-lg transition-colors">🖨️ In CV / Lưu PDF</button>
+  <button onclick="openExportModal()" class="ml-2 bg-green-600 hover:bg-green-700 text-white text-sm font-bold px-5 py-2 rounded-lg transition-colors">📄 Xuất file Word</button>
 </div>
 
 <!-- Main Content -->
@@ -106,12 +109,42 @@
   </div>
 </div>
 
+<!-- EXPORT MODAL -->
+<div id="exportModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4 no-print">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+    <h2 class="text-lg font-bold text-gray-800 mb-2">Chọn mẫu CV để xuất</h2>
+    <p class="text-xs text-gray-500 mb-4">Dữ liệu từ CV này sẽ được điền vào mẫu Word</p>
+    
+    <div id="templateList" class="space-y-2 mb-4 max-h-60 overflow-y-auto">
+      <p class="text-center text-gray-400 py-4 text-sm">Đang tải danh sách mẫu...</p>
+    </div>
+
+    <div class="flex gap-3">
+      <button onclick="document.getElementById('exportModal').classList.add('hidden')" 
+        class="flex-1 border border-gray-200 text-gray-600 font-medium py-2.5 rounded-xl text-sm">Hủy</button>
+    </div>
+  </div>
+</div>
+
+<!-- PREVIEW MODAL -->
+<div id="previewModal" class="hidden fixed inset-0 bg-black/80 z-[60] flex flex-col p-4 md:p-6 no-print">
+  <div class="w-full max-w-5xl mx-auto flex flex-col h-full bg-white rounded-2xl overflow-hidden shadow-2xl">
+    <div class="flex justify-between items-center px-5 py-3 border-b border-gray-100 bg-gray-50">
+      <h2 class="text-lg font-bold text-gray-800">Xem trước CV</h2>
+      <button onclick="document.getElementById('previewModal').classList.add('hidden')" class="text-gray-500 hover:text-red-500 text-3xl leading-none">&times;</button>
+    </div>
+    <div id="docx-container" class="flex-1 overflow-auto bg-gray-200 p-4 flex justify-center"></div>
+  </div>
+</div>
+
 <script>
   const API = 'http://localhost:5000/api';
   const urlParams = new URLSearchParams(window.location.search);
   const appId = urlParams.get('id');
   const cvId  = urlParams.get('cvId');
   const token = localStorage.getItem('lc_token');
+  let currentCvId = null; // Biến toàn cục lưu ID CV đang xem
+  let allLocations = [];
 
   const VERIFY_INFO = {
     unverified:       { label:'Chưa xác minh', cls:'verify-unverified' },
@@ -127,6 +160,13 @@
 
   async function loadData() {
     try {
+      // Tải danh sách địa chính để tìm tên quận/huyện
+      const rLoc = await fetch(`${API}/locations`);
+      const dLoc = await rLoc.json();
+      if (dLoc.success) {
+        allLocations = dLoc.locations || [];
+      }
+
       if (appId) {
         // Xem từ phía Employer (thông qua Application ID)
         const r = await fetch(`${API}/employer/applications?appId=${appId}`, {
@@ -168,17 +208,38 @@
   }
 
   function renderCV(cv, user, profile) {
+    currentCvId = cv._id; // Lưu lại ID
     document.getElementById('loading').classList.add('hidden');
     document.getElementById('cvContent').classList.remove('hidden');
 
     // --- Candidate Header ---
     if (profile.avatar) document.getElementById('candAvatar').src = profile.avatar;
     document.getElementById('candName').textContent = profile.fullName || user.email;
-    const addr = [profile.district, profile.province?.name].filter(Boolean).join(', ');
+
+    let provinceName = '';
+    let districtName = profile.district || '';
+
+    // Xử lý hiển thị địa chỉ (hỗ trợ cả trường hợp province là object hoặc ID string)
+    const provinceId = (profile.province && typeof profile.province === 'object') ? profile.province._id : profile.province;
+
+    if (provinceId && allLocations.length) {
+      const provinceData = allLocations.find(loc => String(loc._id) === String(provinceId));
+      if (provinceData) {
+        provinceName = provinceData.name;
+        if (profile.district && provinceData.districts) {
+          const districtData = provinceData.districts.find(d => d.slug === profile.district);
+          if (districtData) districtName = districtData.name;
+        }
+      }
+    }
+    // Fallback nếu đã populate sẵn name mà không tìm thấy trong allLocations
+    if (!provinceName && profile.province?.name) provinceName = profile.province.name;
+
+    const fullAddress = [profile.address, districtName, provinceName].filter(Boolean).join(', ');
     document.getElementById('candMeta').innerHTML = [
       `📧 ${user.email}`,
       profile.phone ? `📞 ${profile.phone}` : '',
-      addr ? `📍 ${addr}` : ''
+      fullAddress ? `🏠 ${fullAddress}` : ''
     ].filter(Boolean).join(' &nbsp;·&nbsp; ');
 
     // --- Basic Fields ---
@@ -254,6 +315,69 @@
     }).join('') || '<p class="text-xs text-gray-400 italic">Chưa có kinh nghiệm làm việc</p>';
   }
 
+  // --- EXPORT LOGIC ---
+  async function openExportModal() {
+    document.getElementById('exportModal').classList.remove('hidden');
+    const container = document.getElementById('templateList');
+    try {
+      const r = await fetch(`${API}/templates?isActive=true`);
+      const d = await r.json();
+      if (!d.templates || !d.templates.length) {
+        container.innerHTML = '<p class="text-center text-red-400 text-sm">Chưa có mẫu template nào được Admin tải lên.</p>';
+        return;
+      }
+      container.innerHTML = d.templates.map(t => `
+        <div class="flex gap-2 mb-2">
+          <button onclick="downloadDocx('${t._id}')" 
+            class="flex-1 text-left px-4 py-3 rounded-xl border border-gray-200 hover:border-green-500 hover:bg-green-50 transition-all text-sm font-medium text-gray-700 flex items-center justify-between group">
+            <span class="truncate pr-2">${t.name}</span>
+            <span class="text-xs text-gray-400 group-hover:text-green-600 flex-shrink-0">Tải xuống ⬇</span>
+          </button>
+          <button onclick="previewDocx('${t._id}')" 
+            class="px-4 py-3 rounded-xl border border-gray-200 hover:border-blue-500 hover:bg-blue-50 text-gray-500 hover:text-blue-600 transition-all font-bold" title="Xem trước">
+            👁
+          </button>
+        </div>
+      `).join('');
+    } catch(e) { container.innerHTML = '<p class="text-center text-red-500">Lỗi kết nối</p>'; }
+  }
+
+  function downloadDocx(templateId) {
+    if (!currentCvId) { alert('Không tìm thấy ID CV. Vui lòng tải lại trang.'); return; }
+    // Dùng window.location.href để browser tự handle download stream
+    window.location.href = `${API}/templates/generate/${templateId}/cv/${currentCvId}`;
+  }
+
+  async function previewDocx(templateId) {
+    if (!currentCvId) { alert('Không tìm thấy ID CV.'); return; }
+    
+    // Đóng modal chọn và mở modal preview
+    document.getElementById('exportModal').classList.add('hidden');
+    document.getElementById('previewModal').classList.remove('hidden');
+    
+    const container = document.getElementById('docx-container');
+    container.innerHTML = '<div class="self-center animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent"></div>';
+
+    try {
+      const res = await fetch(`${API}/templates/generate/${templateId}/cv/${currentCvId}`);
+      if (!res.ok) throw new Error('Không thể tạo file preview');
+      
+      const blob = await res.blob();
+      container.innerHTML = ''; // Clear loading
+      
+      // Render docx bằng thư viện docx-preview
+      await docx.renderAsync(blob, container, null, {
+        className: "docx", // Dùng tên đơn giản để tránh lỗi token space
+        inWrapper: false,
+        ignoreWidth: false,
+      });
+      // Thêm thủ công các class Tailwind cho các trang văn bản đã render
+      Array.from(container.children).forEach(el => el.classList.add('shadow-lg', 'bg-white', 'mb-10'));
+    } catch (e) {
+      container.innerHTML = `<p class="self-center text-red-500 bg-white p-4 rounded-xl shadow">Lỗi: ${e.message}</p>`;
+    }
+  }
+  
   loadData();
 </script>
 </body>

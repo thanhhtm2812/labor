@@ -39,7 +39,12 @@
 <nav class="bg-white shadow-sm sticky top-0 z-50">
   <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
     <a href="index.html" class="font-extrabold text-xl text-blue-800">Labor<span class="text-orange-500">Connect</span></a>
-    <a href="index.html" class="text-sm text-blue-700 hover:underline">← Về trang chủ</a>
+    <div class="flex items-center gap-4">
+      <div id="navAuth" class="flex items-center gap-3">
+        <a href="login.html" class="text-sm font-medium text-gray-600 hover:text-blue-700">Đăng nhập</a>
+        <a href="register.html" class="text-sm font-medium bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600">Đăng ký</a>
+      </div>
+    </div>
   </div>
 </nav>
 
@@ -131,12 +136,14 @@
 
     <!-- TAB: TUYỂN DỤNG -->
     <div id="tab-jobs" class="tab-content">
+      <br>
       <h2 class="text-lg font-bold text-gray-800 mb-4">Vị trí đang tuyển dụng</h2>
       <div id="companyJobs" class="space-y-3"></div>
     </div>
 
     <!-- TAB: HÌNH ẢNH GALLERY -->
     <div id="tab-gallery" class="tab-content">
+      <br>
       <h2 class="text-lg font-bold text-gray-800 mb-4">Hình ảnh công ty</h2>
       <div id="galleryGrid" class="grid grid-cols-2 md:grid-cols-3 gap-4"></div>
       <div id="emptyGallery" class="hidden text-center text-gray-400 py-16">
@@ -155,6 +162,31 @@
   // Lấy employerId từ URL ?id=...
   const urlParams = new URLSearchParams(window.location.search);
   const employerId = urlParams.get('id');
+
+  // ==========================================
+  // CHECK AUTH NAV
+  // ==========================================
+  function checkAuthNav() {
+    const token = localStorage.getItem('lc_token');
+    const user = JSON.parse(localStorage.getItem('lc_user') || 'null');
+    if (token && user) {
+      let dashUrl = '#';
+      if (user.role === 'admin') dashUrl = 'admin.html';
+      if (user.role === 'employer') dashUrl = 'dashboard-employer.html';
+      if (user.role === 'candidate') dashUrl = 'dashboard-candidate.html';
+
+      document.getElementById('navAuth').innerHTML = `
+        <span class="text-sm text-gray-600">Xin chào, <a href="${dashUrl}" class="font-bold hover:underline">${user.displayName || user.email}</a></span>
+        <button onclick="logout()" class="text-sm text-red-500 hover:underline ml-2">Đăng xuất</button>
+      `;
+    }
+  }
+
+  function logout() {
+    localStorage.removeItem('lc_token');
+    localStorage.removeItem('lc_user');
+    window.location.reload();
+  }
 
   // ==========================================
   // LOAD HỒ SƠ CÔNG TY
@@ -198,10 +230,17 @@
     // Tên + Meta
     document.getElementById('companyName').textContent = p.companyName || 'Tên công ty';
 
+    let districtName = '';
+    if (p.province && p.province.districts && p.district) {
+      const dist = p.province.districts.find(d => d.slug === p.district);
+      if (dist) districtName = dist.name;
+    }
+    const fullLocation = [districtName, p.province?.name].filter(Boolean).join(', ');
+
     const metaItems = [
       p.industry    && `🏢 ${p.industry}`,
       p.companySize && `👥 ${p.companySize} nhân viên`,
-      p.province?.name && `📍 ${p.province.name}`,
+      fullLocation && `📍 ${fullLocation}`,
       p.website     && `<a href="${p.website}" target="_blank" class="text-blue-600 hover:underline">🌐 Website</a>`,
     ].filter(Boolean);
     document.getElementById('companyMeta').innerHTML = metaItems.map(i =>
@@ -226,11 +265,13 @@
     const desc = p.description || '<p>Chưa có thông tin giới thiệu.</p>';
     document.getElementById('companyDescription').innerHTML = desc;
 
+    const fullAddress = [p.address, districtName, p.province?.name].filter(Boolean).join(', ');
+
     // Thông tin nhanh
     const infoItems = [
       { icon: '🏭', label: 'Ngành nghề',    value: p.industry     || '—' },
       { icon: '👥', label: 'Quy mô',        value: p.companySize  || '—' },
-      { icon: '📍', label: 'Địa chỉ',       value: p.province?.name ? `${p.address || ''} ${p.province.name}` : '—' },
+      { icon: '📍', label: 'Địa chỉ',       value: fullAddress || '—' },
       { icon: '📞', label: 'Điện thoại',    value: p.phone        || '—' },
       { icon: '📅', label: 'Thành lập',     value: p.founded      ? `Năm ${p.founded}` : '—' },
       { icon: '🔢', label: 'Mã số thuế',    value: p.taxCode      || '—' },
@@ -377,6 +418,7 @@
   }
 
   // Khởi động
+  checkAuthNav();
   loadCompanyProfile();
 </script>
 <!-- LIGHTBOX -->

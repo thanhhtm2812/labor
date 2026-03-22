@@ -14,7 +14,7 @@ const { uploadImage, uploadToCloudinary } = require('../middleware/upload');
 router.get('/employer/my-jobs', protect, authorize('employer'), async (req, res) => {
   try {
     const jobs = await Job.find({ employer: req.user._id })
-      .populate('province',  'name slug')
+      .populate('province',  'name slug districts')
       .populate('workTypes', 'name slug icon')
       .sort('-createdAt');
     res.json({ success: true, jobs });
