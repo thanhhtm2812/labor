@@ -705,6 +705,94 @@ router.get('/candidate/applications', protect, authorize('candidate'), async (re
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
+// GET /api/candidate/job-suggestions — Gợi ý việc làm thông minh (Smart Match)
+router.get('/candidate/job-suggestions', protect, authorize('candidate'), async (req, res) => {
+  try {
+    const Job = require('../models/Job');
+    const user = await User.findById(req.user._id).populate('candidateProfile.province');
+    const p = user.candidateProfile || {};
+
+    // 1. Lấy tất cả tin đang tuyển (approved & chưa hết hạn)
+    const jobs = await Job.find({
+      status: 'approved',
+      $or: [
+        { expiresAt: { $exists: false } },
+        { expiresAt: null },
+        { expiresAt: { $gte: new Date() } }
+      ]
+    })
+    .populate('province', 'name slug districts')
+    .populate('workTypes', 'name slug icon')
+    .populate('employer', 'employerProfile.companyName employerProfile.logo')
+    .lean();
+
+    // 2. Chuẩn bị dữ liệu ứng viên
+    // a. Kỹ năng (Gộp từ Profile và tất cả CV)
+    const skills = new Set();
+    if (p.skills) p.skills.forEach(s => skills.add((s.name || s).toLowerCase()));
+    (p.cvList || []).forEach(cv => (cv.skills || []).forEach(s => skills.add((s.name || s).toLowerCase())));
+    const skillList = Array.from(skills);
+
+    // b. Tổng số năm kinh nghiệm (Tính từ Profile hoặc lấy max từ CV)
+    const calcYears = (exps) => {
+      let y = 0;
+      (exps || []).forEach(e => {
+        if (e.from) {
+          const start = new Date(e.from);
+          const end = e.to ? new Date(e.to) : (e.isCurrent ? new Date() : new Date());
+          if (end > start) y += (end - start) / (1000 * 60 * 60 * 24 * 365.25);
+        }
+      });
+      return y;
+    };
+    let totalYears = calcYears(p.experience);
+    if (totalYears === 0) {
+      let maxCvYears = 0;
+      (p.cvList || []).forEach(cv => {
+        const y = calcYears(cv.experience);
+        if (y > maxCvYears) maxCvYears = y;
+      });
+      totalYears = maxCvYears;
+    }
+
+    // 3. Thuật toán chấm điểm Match Score
+    const scoredJobs = jobs.map(j => {
+      let score = 0;
+      const details = [];
+      const txt = (j.title + ' ' + j.description + ' ' + j.requirements).toLowerCase();
+
+      // Tiêu chí 1: Địa điểm (Max 30đ)
+      if (j.province && p.province && j.province._id.toString() === p.province._id.toString()) {
+        score += 20;
+        if (j.district && p.district === j.district) { score += 10; details.push('🎯 Cùng khu vực'); }
+        else details.push('✅ Cùng tỉnh/thành');
+      }
+
+      // Tiêu chí 2: Kỹ năng (Max 40đ)
+      let mSkills = 0;
+      skillList.forEach(s => { if (txt.includes(s)) mSkills++; });
+      if (mSkills > 0) {
+        score += Math.min(mSkills * 10, 40);
+        details.push(`🛠 Khớp ${mSkills} kỹ năng`);
+      }
+
+      // Tiêu chí 3: Kinh nghiệm (Max 30đ)
+      const expMap = { 'under-1-year': 0.5, '1-3-years': 1, '3-5-years': 3, 'over-5-years': 5, 'no-experience': 0 };
+      const reqY = expMap[j.experience] || 0;
+      if (j.experience === 'no-experience') { score += 10; details.push('✅ Không yêu cầu KN'); }
+      else if (totalYears >= reqY) { score += 30; details.push('🏆 Đủ kinh nghiệm'); }
+      else if (totalYears >= reqY * 0.5) { score += 15; details.push('⚠️ Kinh nghiệm gần đạt'); }
+
+      return { ...j, matchScore: score, matchDetails: details };
+    })
+    .filter(j => j.matchScore >= 30) // Chỉ lấy job có điểm >= 30
+    .sort((a, b) => b.matchScore - a.matchScore)
+    .slice(0, 12); // Lấy top 12
+
+    res.json({ success: true, jobs: scoredJobs });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
 // GET /api/candidate/invitations — Xem danh sách lời mời
 router.get('/candidate/invitations', protect, authorize('candidate'), async (req, res) => {
   try {

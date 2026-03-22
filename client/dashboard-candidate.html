@@ -55,6 +55,7 @@
       <button onclick="switchSection('invitations')" class="sidebar-link" id="nav-invitations">💌 Lời mời việc làm</button>
       <button onclick="switchSection('applications')" class="sidebar-link" id="nav-applications">📬 Ứng tuyển của tôi</button>
       <button onclick="switchSection('saved-jobs')"  class="sidebar-link" id="nav-saved-jobs">🔖 Việc làm đã lưu</button>
+      <button onclick="switchSection('suggestions')" class="sidebar-link" id="nav-suggestions">🤖 AI gợi ý việc làm</button>
       <button onclick="switchSection('followed')"    class="sidebar-link" id="nav-followed">❤️ Công ty theo dõi</button>
     </nav>
     <div class="p-3 border-t border-gray-100">
@@ -251,6 +252,13 @@
       <div id="savedJobsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
     </div>
 
+    <!-- ========== VIỆC LÀM PHÙ HỢP (GỢI Ý AI) ========== -->
+    <div id="section-suggestions" class="section">
+      <h1 class="text-2xl font-extrabold text-gray-800 mb-2">AI gợi ý việc làm</h1>
+      <p class="text-sm text-gray-500 mb-6">Gợi ý tự động dựa trên kỹ năng, kinh nghiệm và địa điểm trong hồ sơ của bạn</p>
+      <div id="suggestionsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+    </div>
+
     <!-- ========== CÔNG TY THEO DÕI ========== -->
     <div id="section-followed" class="section">
       <h1 class="text-2xl font-extrabold text-gray-800 mb-6">Công ty đang theo dõi</h1>
@@ -286,6 +294,7 @@ function switchSection(name) {
   if (name === 'invitations')  loadInvitations();
   if (name === 'saved-jobs')   loadSavedJobs();
   if (name === 'followed')     loadFollowed();
+  if (name === 'suggestions')  loadSuggestions();
   if (name === 'cvs')          loadCVs();
 }
 
@@ -875,6 +884,57 @@ async function loadSavedJobs() {
       </div>`;
     }).join('');
   } catch (err) { container.innerHTML = `<div class="col-span-3 text-center text-gray-400 py-12"><p class="text-red-400">❌ ${err.message}</p><button onclick="loadSavedJobs()" class="mt-2 text-blue-600 text-sm hover:underline">Thử lại</button></div>`; }
+}
+
+// ==================== JOB SUGGESTIONS (SMART MATCH) ====================
+async function loadSuggestions() {
+  const container = document.getElementById('suggestionsList');
+  container.innerHTML = '<div class="col-span-3 text-center py-8"><div class="animate-spin rounded-full h-8 w-8 border-2 border-purple-600 border-t-purple-200 mx-auto"></div><p class="text-xs text-gray-500 mt-2">AI đang tìm việc làm phù hợp...</p></div>';
+
+  try {
+    const r = await fetch(`${API}/candidate/job-suggestions`, { headers: authH() });
+    const d = await r.json();
+    
+    if (!d.success || !d.jobs.length) {
+      container.innerHTML = '<div class="col-span-3 text-center text-gray-400 py-12"><div class="text-5xl mb-3">🤖</div><p>Chưa tìm thấy việc làm phù hợp. Hãy cập nhật thêm kỹ năng vào hồ sơ!</p></div>';
+      return;
+    }
+
+    container.innerHTML = d.jobs.map(job => {
+      const logo = job.employer?.employerProfile?.logo || 'https://ui-avatars.com/api/?name=Co';
+      const salary = job.salary?.isNegotiate ? 'Thỏa thuận' : (job.salary?.min ? `${(job.salary.min/1e6).toFixed(0)} tr` : '—');
+      
+      let location = job.province?.name || '—';
+      if (job.province?.districts && job.district) {
+        const dist = job.province.districts.find(d => d.slug === job.district);
+        if (dist) location = `${dist.name}, ${job.province.name}`;
+      }
+
+      return `
+      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 hover:shadow-md transition-shadow relative overflow-hidden">
+        <div class="absolute top-0 right-0 bg-purple-600 text-white text-[10px] font-bold px-2 py-1 rounded-bl-xl">
+          ${job.matchScore} điểm phù hợp
+        </div>
+        <div class="flex items-start gap-3 mt-2">
+          <img src="${logo}" class="w-12 h-12 rounded-xl object-cover border border-gray-100 flex-shrink-0" />
+          <div class="min-w-0 flex-1">
+            <a href="job-detail.html?id=${job._id}" target="_blank" class="font-bold text-gray-800 text-sm hover:text-purple-700 line-clamp-2">${job.title}</a>
+            <p class="text-xs text-gray-500 mt-0.5 truncate">${job.employer?.employerProfile?.companyName||'—'}</p>
+          </div>
+        </div>
+        <div class="mt-3 flex flex-wrap gap-1">
+          ${job.matchDetails.slice(0,3).map(tag => `<span class="text-[10px] bg-green-50 text-green-700 px-1.5 py-0.5 rounded border border-green-100">${tag}</span>`).join('')}
+        </div>
+        <div class="mt-3 pt-3 border-t border-gray-50 flex justify-between items-center text-xs">
+          <div class="flex flex-col gap-0.5">
+            <span class="font-bold text-orange-500">💰 ${salary}</span>
+            <span class="text-gray-400">📍 ${location}</span>
+          </div>
+          <a href="job-detail.html?id=${job._id}" target="_blank" class="text-purple-600 font-medium hover:underline">Xem ngay →</a>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) { container.innerHTML = `<p class="col-span-3 text-red-400 text-center">Lỗi: ${e.message}</p>`; }
 }
 
 async function unsaveJob(jobId, btn) {
