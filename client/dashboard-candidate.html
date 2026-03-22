@@ -255,7 +255,37 @@
     <!-- ========== VIỆC LÀM PHÙ HỢP (GỢI Ý AI) ========== -->
     <div id="section-suggestions" class="section">
       <h1 class="text-2xl font-extrabold text-gray-800 mb-2">AI gợi ý việc làm</h1>
-      <p class="text-sm text-gray-500 mb-6">Gợi ý tự động dựa trên kỹ năng, kinh nghiệm và địa điểm trong hồ sơ của bạn</p>
+      <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+        <p class="text-sm text-gray-500">Gợi ý tự động dựa trên hồ sơ của bạn</p>
+        <button onclick="document.getElementById('aiConfig').classList.toggle('hidden')" class="text-xs font-bold text-blue-700 bg-blue-50 px-3 py-2 rounded-lg hover:bg-blue-100 flex items-center gap-1 w-fit">
+          ⚙️ Tùy chỉnh tiêu chí
+        </button>
+      </div>
+
+      <!-- Cấu hình AI -->
+      <div id="aiConfig" class="hidden bg-white border border-gray-200 rounded-xl p-5 mb-6 shadow-sm">
+        <h3 class="font-bold text-gray-800 text-sm mb-4">Điều chỉnh mức độ ưu tiên</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+          <div>
+            <div class="flex justify-between mb-1 text-xs"><span>🛠 Kỹ năng</span> <span id="val_w_skill" class="font-bold">40</span></div>
+            <input type="range" id="rng_w_skill" min="0" max="100" value="40" class="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600" oninput="updateAiVal('w_skill')">
+          </div>
+          <div>
+            <div class="flex justify-between mb-1 text-xs"><span>📍 Địa điểm</span> <span id="val_w_loc" class="font-bold">30</span></div>
+            <input type="range" id="rng_w_loc" min="0" max="100" value="30" class="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600" oninput="updateAiVal('w_loc')">
+          </div>
+          <div>
+            <div class="flex justify-between mb-1 text-xs"><span>💼 Kinh nghiệm</span> <span id="val_w_exp" class="font-bold">30</span></div>
+            <input type="range" id="rng_w_exp" min="0" max="100" value="30" class="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600" oninput="updateAiVal('w_exp')">
+          </div>
+          <div>
+            <div class="flex justify-between mb-1 text-xs"><span>💰 Mức lương</span> <span id="val_w_salary" class="font-bold">0</span></div>
+            <input type="range" id="rng_w_salary" min="0" max="100" value="0" class="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600" oninput="updateAiVal('w_salary')">
+          </div>
+        </div>
+        <div class="mt-4 text-right"><button onclick="loadSuggestions()" class="bg-blue-800 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-blue-900">Áp dụng & Tìm kiếm</button></div>
+      </div>
+
       <div id="suggestionsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
     </div>
 
@@ -887,12 +917,23 @@ async function loadSavedJobs() {
 }
 
 // ==================== JOB SUGGESTIONS (SMART MATCH) ====================
+function updateAiVal(key) {
+  document.getElementById(`val_${key}`).textContent = document.getElementById(`rng_${key}`).value;
+}
+
 async function loadSuggestions() {
   const container = document.getElementById('suggestionsList');
   container.innerHTML = '<div class="col-span-3 text-center py-8"><div class="animate-spin rounded-full h-8 w-8 border-2 border-purple-600 border-t-purple-200 mx-auto"></div><p class="text-xs text-gray-500 mt-2">AI đang tìm việc làm phù hợp...</p></div>';
 
+  // Lấy trọng số từ sliders
+  const w_skill = document.getElementById('rng_w_skill').value;
+  const w_loc   = document.getElementById('rng_w_loc').value;
+  const w_exp   = document.getElementById('rng_w_exp').value;
+  const w_salary= document.getElementById('rng_w_salary').value;
+
   try {
-    const r = await fetch(`${API}/candidate/job-suggestions`, { headers: authH() });
+    const query = `w_skill=${w_skill}&w_loc=${w_loc}&w_exp=${w_exp}&w_salary=${w_salary}`;
+    const r = await fetch(`${API}/candidate/job-suggestions?${query}`, { headers: authH() });
     const d = await r.json();
     
     if (!d.success || !d.jobs.length) {
