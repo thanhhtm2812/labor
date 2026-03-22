@@ -40,6 +40,12 @@ router.get('/:id/suggestions', protect, authorize('employer'), async (req, res) 
     .select('email candidateProfile')
     .lean();
 
+    // Lấy trọng số từ query (Mặc định: Skill=40, Location=30, Exp=30, Salary=0)
+    const w_skill  = Number(req.query.w_skill)  || 40;
+    const w_loc    = Number(req.query.w_loc)    || 30;
+    const w_exp    = Number(req.query.w_exp)    || 30;
+    const w_salary = Number(req.query.w_salary) || 0; // Tiêu chí mới
+
     // 2. Thuật toán chấm điểm Match Score
     const jobText = (job.title + ' ' + job.description + ' ' + job.requirements).toLowerCase();
     
@@ -50,16 +56,18 @@ router.get('/:id/suggestions', protect, authorize('employer'), async (req, res) 
       let score = 0;
       const details = [];
 
-      // Tiêu chí 1: Địa điểm (Max 30đ)
+      // Tiêu chí 1: Địa điểm (Weight: w_loc)
       if (job.province && p.province && job.province.toString() === p.province.toString()) {
-        score += 20;
         if (job.district && p.district === job.district) {
-          score += 10;
+          score += w_loc; // 100% điểm địa điểm
           details.push('🎯 Cùng khu vực');
-        } else details.push('✅ Cùng tỉnh/thành');
+        } else {
+          score += w_loc * 0.6; // 60% điểm địa điểm
+          details.push('✅ Cùng tỉnh/thành');
+        }
       }
 
-      // Tiêu chí 2: Kỹ năng (Max 40đ)
+      // Tiêu chí 2: Kỹ năng (Weight: w_skill)
       const skills = cv.skills || [];
       let matchedSkills = 0;
       skills.forEach(s => {
@@ -67,12 +75,13 @@ router.get('/:id/suggestions', protect, authorize('employer'), async (req, res) 
         if (jobText.includes(sName)) matchedSkills++;
       });
       if (matchedSkills > 0) {
-        const sScore = Math.min(matchedSkills * 10, 40);
+        // Giả sử khớp 4 kỹ năng là đạt tối đa
+        const sScore = Math.min((matchedSkills / 4) * w_skill, w_skill);
         score += sScore;
         details.push(`🛠 Khớp ${matchedSkills} kỹ năng`);
       }
 
-      // Tiêu chí 3: Kinh nghiệm làm việc (Max 30đ)
+      // Tiêu chí 3: Kinh nghiệm làm việc (Weight: w_exp)
       // Tính tổng số năm kinh nghiệm
       const expList = (cv.experience && cv.experience.length > 0) ? cv.experience : (p.experience || []);
       let totalYears = 0;
@@ -92,22 +101,37 @@ router.get('/:id/suggestions', protect, authorize('employer'), async (req, res) 
 
       if (requiredYears > 0) {
         if (totalYears >= requiredYears) {
-          score += 30;
+          score += w_exp;
           details.push(`🏆 Đủ kinh nghiệm (${totalYears.toFixed(1)} năm)`);
         } else if (totalYears >= requiredYears * 0.5) {
-          score += 15;
+          score += w_exp * 0.5;
           details.push(`⚠️ Kinh nghiệm gần đạt (${totalYears.toFixed(1)} năm)`);
         }
       } else {
-        score += 10; // Không yêu cầu kinh nghiệm -> cộng điểm nền
+        score += w_exp * 0.3; // Không yêu cầu kinh nghiệm -> cộng điểm khuyến khích
         details.push('✅ Phù hợp yêu cầu KN');
+      }
+
+      // Tiêu chí 4 (Mới): Mức lương (Weight: w_salary)
+      // Logic: Nếu lương mong muốn của ứng viên nằm trong khoảng lương Job (hoặc Job thỏa thuận)
+      if (w_salary > 0) {
+        const cSal = cv.desiredSalary || p.desiredSalary;
+        let isSalaryMatch = false;
+        if (job.salary.isNegotiate) isSalaryMatch = true;
+        else if (cSal && cSal.min && job.salary.min) {
+           // Nếu mức mong muốn tối thiểu <= mức tối đa của Job (hoặc mức min job * 1.5)
+           const jobMax = job.salary.max || (job.salary.min * 1.5);
+           if (cSal.min <= jobMax) isSalaryMatch = true;
+        } else isSalaryMatch = true; // Thiếu thông tin coi như phù hợp
+
+        if (isSalaryMatch) { score += w_salary; details.push('💰 Mức lương phù hợp'); }
       }
 
       return {
         _id: c._id,
         name: p.fullName || c.email,
         avatar: p.avatar,
-        matchScore: score,
+        matchScore: Math.round(score),
         matchDetails: details,
         jobTitle: cv.title // Tiêu đề CV để tham khảo
       };

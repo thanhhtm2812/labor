@@ -922,14 +922,37 @@
   // ==========================================
   // SMART MATCH (GỢI Ý ỨNG VIÊN)
   // ==========================================
+  let currentJobIdForMatch = null;
+
   async function openSmartMatch(jobId, jobTitle) {
+    currentJobIdForMatch = jobId;
     document.getElementById('smartMatchModal').classList.remove('hidden');
     document.getElementById('smJobTitle').textContent = jobTitle;
+    
+    // Reset sliders về mặc định khi mở mới
+    updateSmSlider('w_skill', 40);
+    updateSmSlider('w_loc', 30);
+    updateSmSlider('w_exp', 30);
+    updateSmSlider('w_salary', 0); // Mặc định tắt tiêu chí lương
+
+    reloadSmartMatch();
+  }
+
+  async function reloadSmartMatch() {
+    if (!currentJobIdForMatch) return;
+    
     const container = document.getElementById('smList');
     container.innerHTML = '<div class="text-center py-8"><div class="animate-spin rounded-full h-8 w-8 border-2 border-purple-600 border-t-transparent mx-auto"></div><p class="text-xs text-gray-500 mt-2">Đang phân tích dữ liệu...</p></div>';
 
+    // Lấy giá trị từ sliders
+    const w_skill = document.getElementById('rng_w_skill').value;
+    const w_loc   = document.getElementById('rng_w_loc').value;
+    const w_exp   = document.getElementById('rng_w_exp').value;
+    const w_salary= document.getElementById('rng_w_salary').value;
+
     try {
-      const r = await fetch(`${API}/jobs/${jobId}/suggestions`, { headers: authHeader() });
+      const query = `w_skill=${w_skill}&w_loc=${w_loc}&w_exp=${w_exp}&w_salary=${w_salary}`;
+      const r = await fetch(`${API}/jobs/${currentJobIdForMatch}/suggestions?${query}`, { headers: authHeader() });
       const d = await r.json();
       
       if (!d.success || !d.candidates.length) {
@@ -956,6 +979,15 @@
     } catch(e) {
       container.innerHTML = '<p class="text-red-500 text-center text-sm p-4">Lỗi kết nối</p>';
     }
+  }
+
+  // Helper cập nhật UI slider
+  window.updateSmVal = (key) => {
+    document.getElementById(`val_${key}`).textContent = document.getElementById(`rng_${key}`).value;
+  }
+  window.updateSmSlider = (key, val) => {
+    document.getElementById(`rng_${key}`).value = val;
+    document.getElementById(`val_${key}`).textContent = val;
   }
 
   // ==========================================
@@ -1640,6 +1672,36 @@
       </div>
       <button onclick="document.getElementById('smartMatchModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
     </div>
+
+    <!-- Cấu hình thuật toán -->
+    <div class="px-5 py-3 bg-gray-50 border-b border-gray-100">
+      <div class="flex justify-between items-center mb-2 cursor-pointer select-none" onclick="document.getElementById('smConfig').classList.toggle('hidden')">
+        <span class="text-xs font-bold text-gray-700 uppercase flex items-center gap-1">⚙️ Cấu hình tiêu chí <span class="text-[10px] font-normal text-gray-400">(Nhấn để mở)</span></span>
+        <span class="text-xs text-blue-600">▼</span>
+      </div>
+      <div id="smConfig" class="hidden space-y-3 text-xs pb-2">
+        <div>
+          <div class="flex justify-between mb-1"><span>🛠 Kỹ năng</span> <span id="val_w_skill" class="font-bold">40</span></div>
+          <input type="range" id="rng_w_skill" min="0" max="100" class="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-purple-600" oninput="updateSmVal('w_skill')">
+        </div>
+        <div>
+          <div class="flex justify-between mb-1"><span>📍 Địa điểm</span> <span id="val_w_loc" class="font-bold">30</span></div>
+          <input type="range" id="rng_w_loc" min="0" max="100" class="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-purple-600" oninput="updateSmVal('w_loc')">
+        </div>
+        <div>
+          <div class="flex justify-between mb-1"><span>💼 Kinh nghiệm</span> <span id="val_w_exp" class="font-bold">30</span></div>
+          <input type="range" id="rng_w_exp" min="0" max="100" class="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-purple-600" oninput="updateSmVal('w_exp')">
+        </div>
+        <div>
+          <div class="flex justify-between mb-1"><span>💰 Mức lương (Mới)</span> <span id="val_w_salary" class="font-bold">0</span></div>
+          <input type="range" id="rng_w_salary" min="0" max="100" class="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-purple-600" oninput="updateSmVal('w_salary')">
+        </div>
+        <div class="flex justify-end pt-2">
+          <button onclick="reloadSmartMatch()" class="bg-purple-600 text-white px-4 py-1.5 rounded-lg hover:bg-purple-700 transition-colors shadow-sm font-medium">Áp dụng</button>
+        </div>
+      </div>
+    </div>
+
     <div id="smList" class="p-4 overflow-y-auto flex-1 space-y-2"></div>
   </div>
 </div>
