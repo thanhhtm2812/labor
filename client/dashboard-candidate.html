@@ -24,6 +24,7 @@
     .verify-pending    { background:#fef9c3;color:#b45309; }
     .verify-verified   { background:#dcfce7;color:#16a34a; }
     .verify-rejected   { background:#fee2e2;color:#dc2626; }
+    textarea { overflow: hidden; }
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -132,7 +133,7 @@
               <select id="pf_district" class="input-base bg-white"><option value="">-- Chọn --</option></select>
             </div>
             <div class="md:col-span-2"><label class="label-xs">Giới thiệu bản thân</label>
-              <textarea id="pf_bio" rows="3" class="input-base resize-none"></textarea></div>
+              <textarea id="pf_bio" rows="3" class="input-base resize-none" oninput="autoResize(this)"></textarea></div>
             <div class="md:col-span-2"><label class="label-xs">Địa chỉ thường trú</label><input id="pf_address" type="text" class="input-base" /></div>
             <div class="md:col-span-2 mt-1">
               <label class="label-xs mb-2">Danh sách Kỹ năng (Từ các CV đã tạo)</label>
@@ -164,7 +165,7 @@
           </div>
           <div class="md:col-span-2">
             <label class="label-xs">Tóm tắt bản thân</label>
-            <textarea id="cv_summary" rows="3" class="input-base resize-none" placeholder="Giới thiệu ngắn..."></textarea>
+            <textarea id="cv_summary" rows="3" class="input-base resize-none" placeholder="Giới thiệu ngắn..." oninput="autoResize(this)"></textarea>
           </div>
           <div>
             <label class="label-xs">Vị trí mong muốn</label>
@@ -191,8 +192,11 @@
         <!-- KỸ NĂNG -->
         <div class="mb-5">
           <div class="flex items-center justify-between mb-2">
-            <label class="label-xs text-blue-700">🛠 Kỹ năng</label>
-            <button onclick="addSkillRow()" type="button" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg">+ Thêm kỹ năng</button>
+            <label class="label-xs text-blue-700">🛠 Chứng chỉ - Kỹ năng khác</label>
+            <div class="flex gap-2">
+              <button onclick="openImportModal('skills')" type="button" class="text-xs bg-white border border-blue-200 text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded-lg">📥 Import từ CV cũ</button>
+              <button onclick="addSkillRow()" type="button" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg">+ Thêm kỹ năng</button>
+            </div>
           </div>
           <div id="cv_skillRows" class="space-y-2"></div>
         </div>
@@ -201,7 +205,10 @@
         <div class="mb-5">
           <div class="flex items-center justify-between mb-2">
             <label class="label-xs text-green-700">🎓 Học vấn</label>
-            <button onclick="addEduRow()" type="button" class="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg">+ Thêm học vấn</button>
+            <div class="flex gap-2">
+              <button onclick="openImportModal('education')" type="button" class="text-xs bg-white border border-green-200 text-green-700 hover:bg-green-50 px-3 py-1.5 rounded-lg">📥 Import từ CV cũ</button>
+              <button onclick="addEduRow()" type="button" class="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg">+ Thêm học vấn</button>
+            </div>
           </div>
           <div id="cv_eduRows" class="space-y-2"></div>
         </div>
@@ -210,7 +217,10 @@
         <div class="mb-5">
           <div class="flex items-center justify-between mb-2">
             <label class="label-xs text-orange-700">💼 Kinh nghiệm làm việc</label>
-            <button onclick="addExpRow()" type="button" class="text-xs bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 rounded-lg">+ Thêm kinh nghiệm</button>
+            <div class="flex gap-2">
+              <button onclick="openImportModal('experience')" type="button" class="text-xs bg-white border border-orange-200 text-orange-700 hover:bg-orange-50 px-3 py-1.5 rounded-lg">📥 Import từ CV cũ</button>
+              <button onclick="addExpRow()" type="button" class="text-xs bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 rounded-lg">+ Thêm kinh nghiệm</button>
+            </div>
           </div>
           <div id="cv_expRows" class="space-y-2"></div>
         </div>
@@ -308,6 +318,11 @@ let skillCount = 0, eduCount = 0, expCount = 0;
 function authH() { return { 'Content-Type':'application/json','Authorization':`Bearer ${token}` }; }
 function logout() { localStorage.clear(); window.location.href = 'login.html'; }
 
+function autoResize(el) {
+  if(!el) return;
+  el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px';
+}
+
 function showAlert(msg, type = 'success') {
   const box = document.getElementById('globalAlert');
   box.className = `mb-5 px-4 py-3 rounded-xl text-sm font-medium ${type==='success'?'bg-green-50 text-green-700 border border-green-200':'bg-red-50 text-red-700 border border-red-200'}`;
@@ -381,6 +396,7 @@ async function loadProfile() {
   document.getElementById('pf_fullName').value  = p.fullName   || '';
   document.getElementById('pf_phone').value     = p.phone      || '';
   document.getElementById('pf_bio').value       = p.bio        || '';
+  setTimeout(() => autoResize(document.getElementById('pf_bio')), 100);
   document.getElementById('pf_address').value   = p.address    || '';
   if (p.gender) document.getElementById('pf_gender').value = p.gender;
   if (p.dateOfBirth) document.getElementById('pf_dob').value = p.dateOfBirth.slice(0,10);
@@ -484,11 +500,10 @@ async function loadCVs() {
   const d = await r.json();
   myCVs = d.cvList || [];
 
-  // Ẩn nút tạo mới nếu đã có CV
+  // Luôn hiển thị nút tạo mới
   const btnAdd = document.getElementById('btnAddCV');
   if (btnAdd) {
-    if (myCVs.length > 0) btnAdd.classList.add('hidden');
-    else btnAdd.classList.remove('hidden');
+    btnAdd.classList.remove('hidden');
   }
 
   const list = myCVs;
@@ -535,7 +550,7 @@ async function loadCVs() {
 // ---- SKILL ROWS ----
 function addSkillRow(data = {}) {
   const i = skillCount++;
-  const projects = (data.projects || []).join(', ');
+  const projects = (data.projects || []).join('\n'); // Join bằng xuống dòng cho textarea
   const row = document.createElement('div');
   row.className = 'row-card'; row.id = `skill_${i}`;
   row.innerHTML = `
@@ -544,7 +559,7 @@ function addSkillRow(data = {}) {
       <button type="button" onclick="document.getElementById('skill_${i}').remove()" class="ml-auto text-xs text-red-400 hover:text-red-600">✕ Xóa</button>
     </div>
     <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
-      <div><label class="label-xs">Tên kỹ năng *</label>
+      <div><label class="label-xs">Tên chứng chỉ và kỹ năng *</label>
         <input type="text" placeholder="JavaScript" value="${data.name||''}" class="input-base text-xs" data-skill="name" data-idx="${i}" /></div>
       <div><label class="label-xs">Trình độ</label>
         <select class="input-base text-xs bg-white" data-skill="level" data-idx="${i}">
@@ -553,14 +568,43 @@ function addSkillRow(data = {}) {
           <option value="advanced" ${data.level==='advanced'?'selected':''}>Nâng cao</option>
           <option value="expert" ${data.level==='expert'?'selected':''}>Chuyên gia</option>
         </select></div>
-      <div><label class="label-xs">Chứng chỉ liên quan</label>
-        <input type="text" placeholder="AWS Certified..." value="${data.certificate||''}" class="input-base text-xs" data-skill="certificate" data-idx="${i}" /></div>
-      <div><label class="label-xs">Link chứng chỉ</label>
+      <div><label class="label-xs">Nơi cấp chứng chỉ</label>
+        <textarea rows="2" placeholder="AWS Certified..." class="input-base text-xs resize-none" data-skill="certificate" data-idx="${i}" oninput="autoResize(this)">${data.certificate||''}</textarea></div>
+      <div><label class="label-xs">Link chứng chỉ (URL)</label>
         <input type="url" placeholder="https://..." value="${data.certUrl||''}" class="input-base text-xs" data-skill="certUrl" data-idx="${i}" /></div>
-      <div class="md:col-span-2"><label class="label-xs">Dự án thực tế (phân cách bằng dấu phẩy)</label>
-        <input type="text" placeholder="E-commerce App, CRM System..." value="${projects}" class="input-base text-xs" data-skill="projects" data-idx="${i}" /></div>
+      <div><label class="label-xs">Từ ngày</label>
+        <input type="date" value="${data.from?data.from.slice(0,10):''}" class="input-base text-xs" data-skill="from" data-idx="${i}" /></div>
+      <div><label class="label-xs">Đến ngày</label>
+        <input type="date" value="${data.to?data.to.slice(0,10):''}" class="input-base text-xs" data-skill="to" data-idx="${i}" /></div>
+      <div class="md:col-span-3"><label class="label-xs">Ảnh minh họa (tối đa 3 ảnh)</label>
+        <input type="file" accept="image/*" multiple class="input-base text-xs" onchange="previewSkillImages(this, ${i})" />
+        <div id="skillImgPreview_${i}" class="flex gap-2 mt-2 flex-wrap">
+          ${(data.images||[]).map(url=>`<img src="${url}" data-existing="1" class="h-16 w-24 object-cover rounded-lg border border-gray-200" />`).join('')}
+        </div>
+      </div>
+      <div class="md:col-span-3"><label class="label-xs">Dự án thực tế</label>
+        <textarea rows="3" placeholder="" class="input-base text-xs resize-none" data-skill="projects" data-idx="${i}" oninput="autoResize(this)">${projects}</textarea></div>
     </div>`;
   document.getElementById('cv_skillRows').appendChild(row);
+  row.querySelectorAll('textarea').forEach(t => setTimeout(() => autoResize(t), 0));
+}
+
+function previewSkillImages(input, rowIdx) {
+  const preview = document.getElementById(`skillImgPreview_${rowIdx}`);
+  if (!preview) return;
+  const current = Array.from(preview.querySelectorAll('img[data-existing]')).map(img => img.src);
+  preview.innerHTML = current.map(url => `<img src="${url}" data-existing="1" class="h-16 w-24 object-cover rounded-lg border border-gray-200" />`).join('');
+  const files = Array.from(input.files).slice(0, 3 - current.length);
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = document.createElement('img');
+      img.src = e.target.result;
+      img.className = 'h-16 w-24 object-cover rounded-lg border border-gray-200';
+      preview.appendChild(img);
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 // ---- EDUCATION ROWS ----
@@ -608,6 +652,8 @@ function addEduRow(data = {}) {
         <input type="checkbox" ${data.isCurrent?'checked':''} class="rounded" data-edu="isCurrent" ${disabled} />
         <label class="text-xs text-gray-600">Đang học</label>
       </div>
+      <div class="md:col-span-4"><label class="label-xs">Ghi chú (Thành tích, hoạt động...)</label>
+        <textarea rows="2" placeholder="GPA xuất sắc, tham gia CLB..." class="input-base text-xs resize-none" data-edu="description" ${disabled} oninput="autoResize(this)">${data.description||''}</textarea></div>
       <div class="md:col-span-4"><label class="label-xs">Upload ảnh bằng cấp/transcript (tối đa 3 ảnh)</label>
         ${!isVerified ? `<input type="file" accept="image/*" multiple class="input-base text-xs" data-edu="images" onchange="previewEduImages(this, ${i})" />` : ''}
         <div id="eduImgPreview_${i}" class="flex gap-2 mt-2 flex-wrap">
@@ -617,6 +663,7 @@ function addEduRow(data = {}) {
     </div>
     ${data.verifyStatus === 'rejected' && data.verifyNote ? `<div class="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded-lg"><strong>Lý do từ chối:</strong> ${data.verifyNote}</div>` : ''}`;
   document.getElementById('cv_eduRows').appendChild(row);
+  row.querySelectorAll('textarea').forEach(t => setTimeout(() => autoResize(t), 0));
 }
 
 function previewEduImages(input, rowIdx) {
@@ -679,10 +726,11 @@ function addExpRow(data = {}) {
         <label class="text-xs text-gray-600">Đang làm</label>
       </div>
       <div class="md:col-span-3"><label class="label-xs">Mô tả công việc</label>
-        <textarea class="input-base text-xs resize-none" rows="2" placeholder="Mô tả..." data-exp="description" ${disabled}>${data.description||''}</textarea></div>
+        <textarea class="input-base text-xs resize-none" rows="2" placeholder="Mô tả..." data-exp="description" ${disabled} oninput="autoResize(this)">${data.description||''}</textarea></div>
     </div>
     ${data.verifyStatus === 'rejected' && data.verifyNote ? `<div class="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded-lg"><strong>Lý do từ chối:</strong> ${data.verifyNote}</div>` : ''}`;
   document.getElementById('cv_expRows').appendChild(row);
+  row.querySelectorAll('textarea').forEach(t => setTimeout(() => autoResize(t), 0));
 }
 
 // ---- COLLECT ROWS ----
@@ -692,7 +740,14 @@ function collectSkills() {
     level:       row.querySelector('[data-skill="level"]')?.value || 'intermediate',
     certificate: row.querySelector('[data-skill="certificate"]')?.value.trim() || '',
     certUrl:     row.querySelector('[data-skill="certUrl"]')?.value.trim() || '',
-    projects:    (row.querySelector('[data-skill="projects"]')?.value || '').split(',').map(s=>s.trim()).filter(Boolean),
+    from:        row.querySelector('[data-skill="from"]')?.value || undefined,
+    to:          row.querySelector('[data-skill="to"]')?.value || undefined,
+    images:      (() => {
+      const idx = row.id.split('_')[1];
+      const preview = document.getElementById(`skillImgPreview_${idx}`);
+      return preview ? Array.from(preview.querySelectorAll('img')).map(img => img.src) : [];
+    })(),
+    projects:    (row.querySelector('[data-skill="projects"]')?.value || '').split(/\n|,/).map(s=>s.trim()).filter(Boolean), // Tách bằng xuống dòng HOẶC dấu phẩy
   })).filter(s => s.name);
 }
 
@@ -708,6 +763,7 @@ function collectEducation() {
     from:      row.querySelector('[data-edu="from"]')?.value           || undefined,
     to:        row.querySelector('[data-edu="to"]')?.value             || undefined,
     isCurrent: row.querySelector('[data-edu="isCurrent"]')?.checked    || false,
+    description: row.querySelector('[data-edu="description"]')?.value.trim() || '',
     // images: upload sau
   })).filter(e => e.school);
 }
@@ -733,6 +789,7 @@ function showCvForm(cv = null) {
   document.getElementById('cv_id').value            = cv?._id || '';
   document.getElementById('cv_title').value         = cv?.title || '';
   document.getElementById('cv_summary').value       = cv?.summary || '';
+  setTimeout(() => autoResize(document.getElementById('cv_summary')), 100);
   document.getElementById('cv_desiredPosition').value = cv?.desiredPosition || '';
   document.getElementById('cv_isPublic').value      = (cv && cv.isPublic === false) ? 'false' : 'true';
   // Lương — 2 input riêng
@@ -987,6 +1044,103 @@ async function unsaveJob(jobId, btn) {
   } catch(e) { showAlert('Lỗi kết nối','error'); btn.textContent='🗑 Bỏ lưu'; btn.disabled=false; }
 }
 
+// ==================== IMPORT MODAL LOGIC ====================
+let _importType = null;
+let _importDataMap = {};
+
+function openImportModal(type) {
+  _importType = type;
+  _importDataMap = {};
+  const container = document.getElementById('importList');
+  container.innerHTML = '';
+  
+  let items = [];
+  // Gom dữ liệu từ tất cả CV
+  (myCVs || []).forEach(cv => {
+    if (type === 'skills') {
+      (cv.skills || []).forEach(s => items.push({ ...s, _source: cv.title }));
+    } else if (type === 'education') {
+      (cv.education || []).forEach(e => items.push({ ...e, _source: cv.title }));
+    } else if (type === 'experience') {
+      (cv.experience || []).forEach(e => items.push({ ...e, _source: cv.title }));
+    }
+  });
+
+  if (items.length === 0) {
+    container.innerHTML = '<p class="text-center text-gray-400 text-sm py-4">Không tìm thấy dữ liệu phù hợp từ các CV khác.</p>';
+  } else {
+    // Lọc trùng lặp đơn giản
+    const unique = [];
+    const seen = new Set();
+    items.forEach(item => {
+        let key = '';
+        if (type === 'skills') key = (item.name || '').toLowerCase();
+        if (type === 'education') key = (item.school + item.degree + item.major).toLowerCase();
+        if (type === 'experience') key = (item.company + item.position).toLowerCase();
+        
+        if (key && !seen.has(key)) {
+            seen.add(key);
+            unique.push(item);
+        }
+    });
+
+    unique.forEach((item, idx) => {
+      _importDataMap[idx] = item;
+      const title = type==='skills' ? item.name : (type==='education' ? item.school : item.company);
+      const sub = type==='skills' ? (item.level === 'basic' ? 'Cơ bản' : item.level==='advanced'?'Nâng cao':'Trung bình') : (type==='education' ? `${item.degree||''} - ${item.major||''}` : item.position);
+      
+      let badge = '';
+      if (item.verifyStatus && item.verifyStatus !== 'unverified') {
+        const vMap = {
+          'pending':          { l: '⏳ Chờ duyệt', c: 'bg-yellow-100 text-yellow-700' },
+          'pending_admin':    { l: '⏳ Chờ Admin', c: 'bg-yellow-100 text-yellow-700' },
+          'pending_employer': { l: '⏳ Chờ Employer', c: 'bg-yellow-100 text-yellow-700' },
+          'verified':         { l: '✅ Đã xác minh', c: 'bg-green-100 text-green-700' },
+          'rejected':         { l: '❌ Từ chối', c: 'bg-red-100 text-red-700' }
+        };
+        const v = vMap[item.verifyStatus];
+        if (v) badge = `<span class="ml-2 text-[10px] px-2 py-0.5 rounded-full ${v.c} font-medium whitespace-nowrap">${v.l}</span>`;
+      }
+
+      const div = document.createElement('div');
+      div.className = 'flex items-start gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer border border-gray-100';
+      div.onclick = (e) => {
+         if(e.target.type !== 'checkbox') {
+             const cb = div.querySelector('input');
+             cb.checked = !cb.checked;
+         }
+      };
+      div.innerHTML = `
+        <input type="checkbox" class="mt-1 rounded text-blue-600 focus:ring-blue-500 cursor-pointer" value="${idx}">
+        <div class="flex-1">
+            <div class="flex items-center flex-wrap gap-1">
+              <p class="text-sm font-bold text-gray-800">${title || 'Chưa đặt tên'}</p>
+              ${badge}
+            </div>
+            <p class="text-xs text-gray-500">${sub || ''}</p>
+            <p class="text-[10px] text-gray-400 mt-0.5">Nguồn: ${item._source}</p>
+        </div>
+      `;
+      container.appendChild(div);
+    });
+  }
+  
+  document.getElementById('importModal').classList.remove('hidden');
+}
+
+function doImport() {
+  const checkboxes = document.querySelectorAll('#importList input:checked');
+  checkboxes.forEach(cb => {
+    const data = JSON.parse(JSON.stringify(_importDataMap[cb.value])); // Deep clone
+    delete data._id; delete data._source; // Xóa ID cũ, giữ lại trạng thái xác minh (verifyStatus, verifyNote)
+    if (_importType === 'skills') addSkillRow(data);
+    else if (_importType === 'education') addEduRow(data);
+    else if (_importType === 'experience') addExpRow(data);
+  });
+  document.getElementById('importModal').classList.add('hidden');
+  if(checkboxes.length) showAlert(`✅ Đã import ${checkboxes.length} mục thành công`);
+}
+
 // ==================== FOLLOWED ====================
 async function loadFollowed() {
   const r = await fetch(`${API}/candidate/followed-companies`, { headers: authH() });
@@ -1178,6 +1332,22 @@ init();
     <div class="flex gap-3">
       <button onclick="document.getElementById('responseModal').classList.add('hidden')" class="flex-1 border border-gray-200 text-gray-600 font-medium py-2.5 rounded-xl text-sm hover:bg-gray-50">Hủy</button>
       <button id="respConfirmBtn" onclick="submitResponse()" class="flex-1 bg-blue-800 hover:bg-blue-900 text-white font-semibold py-2.5 rounded-xl text-sm">Gửi</button>
+    </div>
+  </div>
+</div>
+
+<!-- IMPORT MODAL -->
+<div id="importModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 flex flex-col max-h-[80vh]">
+    <div class="flex items-center justify-between mb-4 flex-shrink-0">
+      <h2 class="text-lg font-bold text-gray-800">Import dữ liệu từ CV cũ</h2>
+      <button onclick="document.getElementById('importModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+    </div>
+    <p class="text-xs text-gray-500 mb-2 flex-shrink-0">Chọn các mục bạn muốn thêm vào CV hiện tại:</p>
+    <div id="importList" class="flex-1 overflow-y-auto space-y-2 border border-gray-100 rounded-xl p-2 mb-4"></div>
+    <div class="flex gap-3 flex-shrink-0">
+      <button onclick="document.getElementById('importModal').classList.add('hidden')" class="flex-1 border border-gray-200 text-gray-600 font-medium py-2.5 rounded-xl text-sm hover:bg-gray-50">Hủy</button>
+      <button onclick="doImport()" class="flex-1 bg-blue-800 hover:bg-blue-900 text-white font-semibold py-2.5 rounded-xl text-sm">📥 Import đã chọn</button>
     </div>
   </div>
 </div>

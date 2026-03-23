@@ -440,6 +440,15 @@ router.post('/candidate/avatar', protect, authorize('candidate'), uploadImage.si
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
+// POST /api/candidate/upload — Upload ảnh chung (cho CV certificate, v.v.)
+router.post('/candidate/upload', protect, authorize('candidate'), uploadImage.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, message: 'Vui lòng chọn file ảnh' });
+    const url = await uploadToCloudinary(req.file.buffer, 'labor-connect/cv-certs');
+    res.json({ success: true, message: 'Upload thành công', url });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
 // POST /api/candidate/switch-back-to-employer — Walk-in login ngược lại Employer
 router.post('/candidate/switch-back-to-employer', protect, authorize('candidate'), async (req, res) => {
   try {

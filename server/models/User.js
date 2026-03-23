@@ -9,7 +9,10 @@ const skillSchema = new mongoose.Schema({
   level:        { type: String, enum: ['basic','intermediate','advanced','expert'], default: 'intermediate' },
   certificate:  { type: String },          // Tên chứng chỉ liên quan
   certUrl:      { type: String },          // Link chứng chỉ
+  images:       [{ type: String }],        // Ảnh minh họa kỹ năng
   projects:     [{ type: String }],        // Danh sách dự án thực tế đã dùng kỹ năng này
+  from:         { type: Date },            // Thời gian bắt đầu học/làm kỹ năng này
+  to:           { type: Date },            // Thời gian kết thúc (hoặc null nếu đến nay)
 }, { _id: true });
 
 // ==========================================

@@ -172,6 +172,13 @@ router.get('/generate/:templateId/cv/:cvId', async (req, res) => {
       summary: cv.summary || '',
       title: cv.title || '',
       desiredPosition: cv.desiredPosition || '',
+      salary: (() => {
+        const s = cv.desiredSalary;
+        if (!s) return 'Thỏa thuận';
+        if (s.min && s.max) return `${(s.min/1000000).toLocaleString('vi-VN')} - ${(s.max/1000000).toLocaleString('vi-VN')} triệu VND`;
+        if (s.min) return `Từ ${(s.min/1000000).toLocaleString('vi-VN')} triệu VND`;
+        return 'Thỏa thuận';
+      })(),
       skills: (cv.skills || []).map(s => {
         const levelMap = {
           basic: 'Cơ bản',
@@ -182,8 +189,11 @@ router.get('/generate/:templateId/cv/:cvId', async (req, res) => {
         return {
           name: s.name || '',
           level: levelMap[s.level] || 'Trung bình',
-          certificate: s.certificate || 'Không có',
-          projects: (s.projects || []).join(', ') || 'Không có',
+          certificate: s.certificate || '',
+          certUrl: s.certUrl || '',
+          from: fmt(s.from),
+          to: fmt(s.to),
+          projects: (s.projects || []).join(', ') || '',
         };
       }),
       education: (cv.education || []).map(e => ({
@@ -193,6 +203,7 @@ router.get('/generate/:templateId/cv/:cvId', async (req, res) => {
         gpa: e.gpa,
         from: fmt(e.from),
         to: e.isCurrent ? 'Hiện tại' : fmt(e.to),
+        description: e.description || '',
         verifyStatus: verifyMap[e.verifyStatus] || 'Chưa xác minh',
         isVerified: e.verifyStatus === 'verified'
       })),

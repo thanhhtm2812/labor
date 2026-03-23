@@ -27,6 +27,7 @@
       .no-print { display: none; }
       .print-shadow-none { box-shadow: none; }
     }
+    textarea { overflow: hidden; }
   </style>
 </head>
 <body class="bg-gray-100 min-h-screen py-8 text-gray-800">
@@ -146,6 +147,11 @@
   let currentCvId = null; // Biến toàn cục lưu ID CV đang xem
   let allLocations = [];
 
+  function autoResize(el) {
+    if(!el) return;
+    el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px';
+  }
+
   const VERIFY_INFO = {
     unverified:       { label:'Chưa xác minh', cls:'verify-unverified' },
     pending:          { label:'Đang chờ duyệt', cls:'verify-pending' },
@@ -247,6 +253,8 @@
     document.getElementById('cv_summary').value = cv.summary || '';
     document.getElementById('cv_desiredPosition').value = cv.desiredPosition || '';
     
+    setTimeout(() => autoResize(document.getElementById('cv_summary')), 100);
+
     const sal = cv.desiredSalary;
     document.getElementById('cv_salary').value = (sal && sal.min) 
       ? `${(sal.min/1e6).toFixed(0)} - ${(sal.max/1e6).toFixed(0)} triệu VND` 
@@ -257,18 +265,23 @@
     // --- Lists ---
     // Skills
     document.getElementById('cv_skillRows').innerHTML = (cv.skills || []).map((s, i) => {
-      const projects = (s.projects || []).join(', ');
+      const projects = (s.projects || []).join('\n');
       return `
       <div class="row-card">
         <div class="flex items-center gap-2 mb-2"><span class="text-xs font-semibold text-blue-700">Kỹ năng #${i+1}</span></div>
         <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
           <div><label class="label-xs">Tên kỹ năng</label><input type="text" value="${s.name||''}" class="input-base text-xs" disabled /></div>
           <div><label class="label-xs">Trình độ</label><input type="text" value="${s.level||''}" class="input-base text-xs" disabled /></div>
-          <div><label class="label-xs">Chứng chỉ</label><input type="text" value="${s.certificate||''}" class="input-base text-xs" disabled /></div>
-          <div class="md:col-span-3"><label class="label-xs">Dự án</label><input type="text" value="${projects}" class="input-base text-xs" disabled /></div>
+          <div><label class="label-xs">Chứng chỉ</label><textarea rows="2" class="input-base text-xs resize-none" disabled>${s.certificate||''}</textarea></div>
+          <div><label class="label-xs">Link chứng chỉ</label><input type="url" value="${s.certUrl||''}" class="input-base text-xs" disabled /></div>
+          <div class="md:col-span-3"><label class="label-xs">Dự án</label><textarea rows="3" class="input-base text-xs resize-none" disabled>${projects}</textarea></div>
+          ${(s.images && s.images.length) ? `<div class="md:col-span-3 mt-1 flex gap-2 flex-wrap">${s.images.map(img => `<img src="${img}" class="h-12 w-16 object-cover rounded border cursor-pointer" onclick="window.open('${img}')" />`).join('')}</div>` : ''}
         </div>
       </div>`;
     }).join('') || '<p class="text-xs text-gray-400 italic">Chưa có kỹ năng</p>';
+
+    // Resize textarea in lists
+    document.querySelectorAll('#cv_skillRows textarea').forEach(t => autoResize(t));
 
     // Education
     document.getElementById('cv_eduRows').innerHTML = (cv.education || []).map((e, i) => {
@@ -287,12 +300,14 @@
           <div><label class="label-xs">Chuyên ngành</label><input type="text" value="${e.major||''}" class="input-base text-xs" disabled /></div>
           <div><label class="label-xs">GPA</label><input type="text" value="${e.gpa||''}" class="input-base text-xs" disabled /></div>
           <div><label class="label-xs">Thời gian</label><input type="text" value="${from} - ${to}" class="input-base text-xs" disabled /></div>
+          <div class="md:col-span-4"><label class="label-xs">Ghi chú</label><textarea rows="2" class="input-base text-xs resize-none" disabled>${e.description||''}</textarea></div>
           <div class="md:col-span-4 flex gap-2 flex-wrap mt-1">
              ${(e.images||[]).map(img => `<img src="${img}" class="h-12 w-16 object-cover rounded border" />`).join('')}
           </div>
         </div>
       </div>`;
     }).join('') || '<p class="text-xs text-gray-400 italic">Chưa có thông tin học vấn</p>';
+    document.querySelectorAll('#cv_eduRows textarea').forEach(t => autoResize(t));
 
     // Experience
     document.getElementById('cv_expRows').innerHTML = (cv.experience || []).map((e, i) => {
@@ -313,6 +328,7 @@
         </div>
       </div>`;
     }).join('') || '<p class="text-xs text-gray-400 italic">Chưa có kinh nghiệm làm việc</p>';
+    document.querySelectorAll('#cv_expRows textarea').forEach(t => autoResize(t));
   }
 
   // --- EXPORT LOGIC ---
